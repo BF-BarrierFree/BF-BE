@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/bf_db?serverTimezone=UTC}
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate # 개발 시에는 validate 유지
+    properties:
+      hibernate:
+        show_sql: true # 개발 환경에서만 true, 배포 시에는 false로 변경
+        format_sql: true # 개발 환경에서만 true, 배포 시에는 false로 변경
+
+app:
+  url: ${APP_URL:http://localhost:8080}
