@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TestController {
 
     @GetMapping
-    public String test() {
-        return "Barrier-Free Backend Server is running successfully!";
+    public ApiResponse<String> test() {
+        return ApiResponse.success("서버 정상 작동 중!", "Test API 호출 성공");
     }
 }
