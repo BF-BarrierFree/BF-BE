@@ -2,15 +2,17 @@
 
 이 문서는 Barrier-Free(BF) 백엔드 프로젝트의 원활한 협업을 위한 규칙을 정의합니다.
 
-## 1. 브랜치 전략 (GitHub Flow)
-작업은 항상 `main` 브랜치에서 파생된 개별 브랜치에서 진행하며, 작업 완료 후 PR(Pull Request)을 통해 머지합니다.
+## 1. 브랜치 전략 (Git Flow)
+우리 프로젝트는 실무 표준인 Git Flow 전략을 간소화하여 사용합니다.
 
-* **형식**: `타입/#이슈번호-작업내용` (작업내용은 케밥 케이스 사용)
-* **예시**:
-  * 기능 추가: `feature/#12-google-map-api`
-  * 버그 수정: `bugfix/#15-login-timeout`
-  * 긴급 수정: `hotfix/#20-db-connection-error`
-  * 설정/문서: `chore/#5-add-redis-config`
+* **`main`**: 운영 서버에 배포되는 최종 브랜치 (절대 직접 커밋 불가)
+* **`develop`**: 다음 출시 버전을 위해 개발하는 브랜치 (**Default Branch**)
+* **`feature/...`**: 개별 기능 개발 브랜치 (`develop`에서 파생)
+
+**작업 프로세스**: 
+1. `develop` 브랜치에서 `feature/#이슈번호-작업내용` 브랜치 생성
+2. 작업 완료 후 `feature` -> `develop`으로 PR 생성 및 머지
+3. 충분한 테스트 후 `develop` -> `main`으로 머지하여 배포
 
 ## 2. 코드 및 네이밍 컨벤션
 일관된 코드 스타일을 유지하여 가독성을 높입니다.
@@ -102,12 +104,9 @@
   * `// when`: 실제 테스트할 메서드 호출
   * `// then`: 예상 결과 검증 (AssertJ 사용)
 
-### 6.2 CI/CD 및 브랜치 배포 전략 (GitHub Flow)
-우리 프로젝트는 단일 메인 브랜치(`main`)를 운영하는 GitHub Flow 전략을 따릅니다.
-
-* **CI (지속적 통합 - 자동 테스트)**
-  * `main` 브랜치로 PR(Pull Request)이 생성되거나 커밋이 추가되면, GitHub Actions가 자동으로 빌드 및 테스트(`spotlessCheck`, `test`)를 수행합니다.
-  * 테스트가 실패한 PR은 `main` 브랜치에 머지할 수 없습니다.
-* **CD (지속적 배포 - 자동 배포)**
-  * PR이 승인되어 `main` 브랜치로 코드가 머지되면, GitHub Actions가 이를 감지하여 운영(또는 개발) 서버에 자동으로 최신 버전을 배포합니다.
-  * 개발자는 별도의 수동 배포 과정을 거치지 않습니다.
+### 6.2 CI/CD 및 브랜치 배포 전략
+* **CI (자동 테스트)**
+  * `feature` -> `develop`으로 PR 생성 시 GitHub Actions가 자동 테스트 수행
+* **CD (자동 배포)**
+  * `develop` 브랜치 머지 시 ➡️ **개발(Dev) 서버**에 자동 배포 (프론트 연동 테스트용)
+  * `main` 브랜치 머지 시 ➡️ **운영(Prod) 서버**에 자동 배포 (실제 서비스용)
