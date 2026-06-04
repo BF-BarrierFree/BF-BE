@@ -65,16 +65,6 @@
 
 ### 5.1 패키지 구조 (도메인별 분리)
 * 기능(Controller, Service...)이 아니라 **도메인(Facility, User...)**을 기준으로 패키지를 나눕니다.
-* 예시:
-  com.barrierfree.bf
-  ├── domain
-  │   └── facility          // 시설 도메인
-  │       ├── controller    // API 진입점
-  │       ├── service       // 비즈니스 로직
-  │       ├── repository    // DB 접근
-  │       ├── entity        // DB 테이블 매핑 객체
-  │       └── dto           // 계층 간 데이터 전달 객체 (Request, Response)
-  └── global                // 전역 공통 설정 (Exception, Response, Config 등)
 
 ### 5.2 계층 간 데이터 전달 규칙 (Entity vs DTO)
 가장 중요한 핵심 규칙입니다. **Entity는 절대 Controller 밖(프론트엔드 응답)으로 나가지 않습니다.**
@@ -85,28 +75,23 @@
 
 ### 5.3 DTO 변환 주체
 * Entity -> DTO 변환이나 DTO -> Entity 변환 로직은 **DTO 내부의 팩토리 메서드(또는 빌더)**에서 처리하는 것을 권장합니다.
-* (예: `FacilityResponse.from(Facility facility)` 또는 `facilityRequest.toEntity()`)
 
 ### 5.4 의존성 주입 (DI) 규칙
 * `@Autowired` 필드 주입은 지양합니다.
 * 클래스 상단에 `@RequiredArgsConstructor`를 붙이고, 주입받을 객체를 `private final`로 선언하는 **생성자 주입 방식**만 사용합니다.
 
 ## 6. 테스트 및 배포 (CI/CD) 규칙
-
 안정적인 서비스 운영을 위해 자동화된 테스트와 배포 파이프라인을 구축하고 준수합니다.
 
 ### 6.1 테스트 코드 작성 룰
 * **테스트 대상**: Controller(API 스펙)와 Service(비즈니스 로직)는 필수적으로 단위/통합 테스트를 작성합니다.
 * **메서드 네이밍 (한국어 허용)**: 테스트의 목적과 상황을 직관적으로 알 수 있도록 **한국어 메서드명**을 적극 권장합니다.
-  * 예시: `@Test void 구글맵_API_타임아웃_시_CustomException_발생()`
-* **Given-When-Then 패턴**: 모든 테스트 코드는 아래 세 구역으로 주석을 나누어 작성합니다.
-  * `// given`: 테스트에 필요한 데이터, 모킹(Mocking) 설정
-  * `// when`: 실제 테스트할 메서드 호출
-  * `// then`: 예상 결과 검증 (AssertJ 사용)
+* **Given-When-Then 패턴**: 모든 테스트 코드는 `// given`, `// when`, `// then` 세 구역으로 주석을 나누어 작성합니다.
 
 ### 6.2 CI/CD 및 브랜치 배포 전략
-* **CI (자동 테스트)**
-  * `feature` -> `develop`으로 PR 생성 시 GitHub Actions가 자동 테스트 수행
-* **CD (자동 배포)**
-  * `develop` 브랜치 머지 시 ➡️ **개발(Dev) 서버**에 자동 배포 (프론트 연동 테스트용)
+* **CI (지속적 통합 - 자동 검증)**
+  * PR 생성 및 업데이트 시 (`feature` -> `develop`, `develop` -> `main`) GitHub Actions가 빌드, 코드 포맷팅(Spotless) 검사, 자동 테스트를 수행합니다.
+  * **CI 파이프라인(테스트)이 실패한 PR은 절대 머지할 수 없습니다.** (Branch Protection 연동)
+* **CD (지속적 배포 - 자동 배포)**
+  * `develop` 브랜치 머지 시 ➡️ **개발(Dev) 서버**에 자동 배포 (프론트엔드 연동 및 QA용)
   * `main` 브랜치 머지 시 ➡️ **운영(Prod) 서버**에 자동 배포 (실제 서비스용)
