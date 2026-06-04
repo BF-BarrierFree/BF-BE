@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/test")
 public class TestController {
 
-    @GetMapping
-    public ApiResponse<String> test() {
-        return ApiResponse.success("서버 정상 작동 중!", "Test API 호출 성공");
-    }
+  @GetMapping
+  public ApiResponse<String> test() {
+    return ApiResponse.success("서버 정상 작동 중!", "Test API 호출 성공");
+  }
 }
