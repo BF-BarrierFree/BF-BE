@@ -9,7 +9,7 @@
 * **`develop`**: 다음 출시 버전을 위해 개발하는 브랜치 (**Default Branch**)
 * **`feature/...`**: 개별 기능 개발 브랜치 (`develop`에서 파생)
 
-**작업 프로세스**: 
+**작업 프로세스**:
 1. `develop` 브랜치에서 `feature/#이슈번호-작업내용` 브랜치 생성
 2. 작업 완료 후 `feature` -> `develop`으로 PR 생성 및 머지
 3. 충분한 테스트 후 `develop` -> `main`으로 머지하여 배포
@@ -95,3 +95,21 @@
 * **CD (지속적 배포 - 자동 배포)**
   * `develop` 브랜치 머지 시 ➡️ **개발(Dev) 서버**에 자동 배포 (프론트엔드 연동 및 QA용)
   * `main` 브랜치 머지 시 ➡️ **운영(Prod) 서버**에 자동 배포 (실제 서비스용)
+
+## 7. 환경변수/Secret 관리
+API Key, DB 비밀번호 등 민감 정보는 코드에 직접 작성하지 않습니다.
+민감 정보는 환경변수 또는 별도 secret 설정 파일로 관리하며, Git에 커밋하지 않습니다.
+
+## 8. Public Repository 및 CodeRabbit 사용 규칙
+
+> API Key, DB 비밀번호 등 민감 정보는 코드에 직접 작성하지 않습니다.
+> 민감 정보는 환경변수 또는 별도 secret 설정 파일로 관리하며, Git에 커밋하지 않습니다.
+
+본 프로젝트는 CodeRabbit 무료 리뷰 사용을 위해 Public Repository로 운영할 수 있습니다.
+Public Repository에서는 모든 코드, 커밋, PR, Issue 내용이 외부에 공개되므로 민감 정보는 절대 포함하지 않습니다.
+
+- Google Maps API Key, DB 계정, AWS Access Key, JWT Secret 등은 코드에 직접 작성하지 않습니다.
+- 민감 정보는 환경변수 또는 별도 secret 설정 파일로 관리합니다.
+- `.env`, `application-secret.yml`, `application-prod.yml` 등 민감 설정 파일은 Git에 커밋하지 않습니다.
+- PR 작성 시 실제 키, 비밀번호, 토큰, 개인정보가 포함되어 있지 않은지 확인합니다.
+- CodeRabbit 설치 시 접근 권한은 필요한 레포에만 부여합니다.
