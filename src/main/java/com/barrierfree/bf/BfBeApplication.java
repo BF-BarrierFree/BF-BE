@@ -7,6 +7,13 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class BfBeApplication {
 
+  /**
+   * Entry point for the Spring Boot application that loads environment variables and starts the application.
+   *
+   * Loads environment variables from a {@code .env} file and sets them as JVM system properties,
+   * making them available to Spring configuration placeholders. If the {@code .env} file is absent,
+   * the application continues without error.
+   */
   public static void main(String[] args) {
     // 1. .env 파일 로드 (배포 환경 등 파일이 없으면 무시하도록 설정하여 에러 방지)
     Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();

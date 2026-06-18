@@ -18,13 +18,22 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
 
-  // 비밀번호 암호화를 위한 필수 빈 (추후 로그인 구현 시 사용)
+  /**
+   * Provides a BCrypt-based password encoder.
+   *
+   * @return a password encoder using BCrypt hashing
+   */
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
 
-  // CORS(도메인 간 접근) 허용 설정 (벤치마킹 코드 적용)
+  /**
+   * Configures CORS settings for development and local environments.
+   *
+   * @return a CorsConfigurationSource configured to allow GitHub Codespaces and
+   *         localhost origins with support for standard HTTP methods and credentials
+   */
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration config = new CorsConfiguration();
@@ -46,6 +55,11 @@ public class SecurityConfig {
     return source;
   }
 
+  /**
+   * Configures HTTP security policies, CORS rules, and request authorization for the API.
+   *
+   * @return the configured security filter chain
+   */
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http

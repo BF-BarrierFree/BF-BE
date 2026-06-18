@@ -9,6 +9,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/health")
 public class HealthCheckController {
 
+  /**
+   * Checks the health status of the server.
+   *
+   * @return an ApiResponse indicating the server is healthy and ready for database communication
+   */
   @GetMapping
   public ApiResponse<String> checkHealth() {
     // ApiResponse의 success(T data, String message) 메서드 활용
