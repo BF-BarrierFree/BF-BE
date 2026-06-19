@@ -26,8 +26,7 @@ public class HealthCheckController {
     try {
       // 실제 데이터베이스 연결 테스트
       dataSource.getConnection().close();
-      return ResponseEntity.ok(
-          ApiResponse.success("OK", "서버가 정상적으로 동작 중이며, DB 연결이 확인되었습니다."));
+      return ResponseEntity.ok(ApiResponse.success("OK", "서버가 정상적으로 동작 중이며, DB 연결이 확인되었습니다."));
     } catch (Exception e) {
       logger.error("Health check failed", e);
       return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)

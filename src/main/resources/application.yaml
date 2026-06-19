@@ -21,3 +21,10 @@ app:
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+# --- 외부 API 연동 설정 ---
+google:
+  places:
+    # .env 파일 또는 시스템 환경 변수에 선언된 GOOGLE_MAP_API_KEY 값을 주입받습니다.
+    # 추후 Service 클래스에서 @Value("${google.places.api-key}") 형태로 꺼내어 사용합니다.
+    api-key: ${GOOGLE_MAP_API_KEY}

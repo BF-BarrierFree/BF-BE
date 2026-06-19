@@ -66,7 +66,12 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
                     // 헬스체크 및 추후 오픈할 경로는 인증 없이 접근 허용
-                    .requestMatchers("/", "/api/health", "/swagger-ui/**", "/v3/api-docs/**")
+                    .requestMatchers(
+                        "/",
+                        "/api/health",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/api/v1/test/places/**")
                     .permitAll()
                     // 나머지 모든 요청은 우선 인증 필요
                     .anyRequest()
