@@ -1,8 +1,15 @@
 package com.barrierfree.bf.config;
 
+import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
 
 @Configuration
 public class WebClientConfig {
@@ -10,9 +17,17 @@ public class WebClientConfig {
   /** 비동기 HTTP 통신을 위한 WebClient 빈(Bean) 등록 서비스 계층(Service)에서 주입받아 구글 API 등을 호출할 때 사용합니다. */
   @Bean
   public WebClient webClient() {
+    HttpClient httpClient =
+        HttpClient.create()
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+            .responseTimeout(Duration.ofSeconds(10))
+            .doOnConnected(
+                conn ->
+                    conn.addHandlerLast(new ReadTimeoutHandler(10, TimeUnit.SECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(10, TimeUnit.SECONDS)));
+
     return WebClient.builder()
-        // 필요한 경우 여기서 기본 타임아웃, 로깅 필터 등을 추가할 수 있습니다.
-        // 지금은 가장 기본적인 형태의 WebClient를 생성합니다.
+        .clientConnector(new ReactorClientHttpConnector(httpClient))
         .build();
   }
 }
