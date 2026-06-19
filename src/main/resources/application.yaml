@@ -1,16 +1,23 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/bf_db?serverTimezone=UTC}
-    username: ${DB_USER:root}
-    password: ${DB_PASSWORD:password}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 시스템 속성(로컬) 또는 OS 환경 변수(배포)에서 가져옴
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
   jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate # 개발 시에는 validate 유지
+      ddl-auto: validate
     properties:
       hibernate:
-        show_sql: true # 개발 환경에서만 true, 배포 시에는 false로 변경
-        format_sql: true # 개발 환경에서만 true, 배포 시에는 false로 변경
+        show_sql: false
+        format_sql: false
+        use_sql_comments: false
 
 app:
   url: ${APP_URL:http://localhost:8080}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
