@@ -1,6 +1,7 @@
 package com.barrierfree.bf.config;
 
 import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,24 +19,22 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 public class SecurityConfig {
 
+  @Value("${cors.allowed-origins}")
+  private List<String> allowedOrigins;
+
   // 비밀번호 암호화를 위한 필수 빈 (추후 로그인 구현 시 사용)
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
 
-  // CORS(도메인 간 접근) 허용 설정 (벤치마킹 코드 적용)
+  // CORS(도메인 간 접근) 허용 설정 (환경별 설정 적용)
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration config = new CorsConfiguration();
 
-    // 프론트엔드 및 Codespaces 도메인 허용
-    config.setAllowedOriginPatterns(
-        List.of(
-            "https://*.app.github.dev", // Codespace 환경
-            "http://localhost:*", // 로컬 개발
-            "https://localhost:*",
-            "http://127.0.0.1:*"));
+    // 환경별 설정 파일에서 허용 도메인 가져오기
+    config.setAllowedOrigins(allowedOrigins);
 
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     config.setAllowedHeaders(List.of("*"));
