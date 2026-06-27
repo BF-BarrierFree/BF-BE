@@ -159,7 +159,7 @@ public class PlaceTestService {
   /** 3. 특정 장소 상세 조회 */
   public GooglePlaceResponseDto.Place getPlaceDetails(String placeId) {
     String url =
-        UriComponentsBuilder.fromHttpUrl("https://places.googleapis.com/v1/places/{placeId}")
+        UriComponentsBuilder.fromUriString("https://places.googleapis.com/v1/places/{placeId}")
             .queryParam("languageCode", "ko")
             .buildAndExpand(placeId)
             .toUriString();
