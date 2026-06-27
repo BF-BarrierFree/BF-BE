@@ -71,8 +71,7 @@ public class SecurityConfig {
                         "/api/health",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
-                        "/api/v1/test/places/**",
-                        "/api/v1/routes/**")
+                        "/api/v1/test/places/**")
                     .permitAll()
                     // 나머지 모든 요청은 우선 인증 필요
                     .anyRequest()
