@@ -12,9 +12,9 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
-        show_sql: false
-        format_sql: false
-        use_sql_comments: false
+        show_sql: true # 배포 시 false로 바꿀 것
+        format_sql: true # 배포 시 false로 바꿀 것
+        use_sql_comments: true # 배포 시 false로 바꿀 것
 
 app:
   url: ${APP_URL:http://localhost:8080}
@@ -28,3 +28,7 @@ google:
     # .env 파일 또는 시스템 환경 변수에 선언된 GOOGLE_MAP_API_KEY 값을 주입받습니다.
     # 추후 Service 클래스에서 @Value("${google.places.api-key}") 형태로 꺼내어 사용합니다.
     api-key: ${GOOGLE_MAP_API_KEY}
+
+openrouteservice:
+  base-url: https://api.openrouteservice.org
+  api-key: ${ORS_API_KEY}
