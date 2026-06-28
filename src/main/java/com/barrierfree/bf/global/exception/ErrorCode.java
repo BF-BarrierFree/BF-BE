@@ -24,7 +24,9 @@ public enum ErrorCode {
   INVALID_ROUTE_COORDINATES(
       HttpStatus.BAD_REQUEST, "R002", "출발지 또는 도착지의 좌표가 올바르지 않습니다. (예: 바다 한가운데)"),
   EXTERNAL_ROUTING_FAILED(
-      HttpStatus.SERVICE_UNAVAILABLE, "R003", "길찾기 서버와의 통신이 원활하지 않습니다. 잠시 후 다시 시도해 주세요.");
+      HttpStatus.SERVICE_UNAVAILABLE, "R003", "길찾기 서버와의 통신이 원활하지 않습니다. 잠시 후 다시 시도해 주세요."),
+  ODSAY_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "R004", "대중교통 길찾기 정보를 불러오는데 실패했습니다."),
+  TAGO_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "R005", "공공데이터(버스 정보)를 불러오는데 실패했습니다.");
 
   private final HttpStatus status; // HTTP 상태 코드
   private final String code; // 서비스 고유 에러 코드

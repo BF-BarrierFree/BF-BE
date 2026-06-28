@@ -27,7 +27,9 @@ public record WheelchairRouteResponse(
       throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
     }
 
-    if (firstFeature.geometry() == null || firstFeature.geometry().coordinates() == null || firstFeature.geometry().coordinates().isEmpty()) {
+    if (firstFeature.geometry() == null
+        || firstFeature.geometry().coordinates() == null
+        || firstFeature.geometry().coordinates().isEmpty()) {
       throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
     }
 
