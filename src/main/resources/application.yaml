@@ -43,3 +43,8 @@ odsay:
   api:
     base-url: https://api.odsay.com
     api-key: ${ODSAY_API_KEY}
+
+kakao:
+  mobility:
+    base-url: https://apis-navi.kakaomobility.com
+    api-key: ${KAKAO_MOBILITY_API_KEY}
