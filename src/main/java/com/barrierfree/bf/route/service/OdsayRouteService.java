@@ -67,6 +67,11 @@ public class OdsayRouteService {
                   return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
                 })
             .bodyToMono(String.class)
+            .onErrorMap(
+                throwable -> {
+                  log.error("ODsay API 호출 중 네트워크/타임아웃 에러 발생: {}", throwable.getMessage());
+                  return new CustomException(ErrorCode.ODSAY_API_FAILED);
+                })
             .block();
 
     if (rawResponse == null) {
