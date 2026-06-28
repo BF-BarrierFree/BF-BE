@@ -27,16 +27,23 @@ public record WheelchairRouteResponse(
       throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
     }
 
-    if (firstFeature.geometry() == null || firstFeature.geometry().coordinates() == null || firstFeature.geometry().coordinates().isEmpty()) {
+    if (firstFeature.geometry() == null
+        || firstFeature.geometry().coordinates() == null
+        || firstFeature.geometry().coordinates().isEmpty()) {
       throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
     }
 
     // 3D 좌표 배열(경도, 위도, 고도)을 Point 객체 리스트로 매핑
+    // 각 좌표는 최소 2개 값(경도, 위도)을 가져야 하며, 그렇지 않으면 ROUTE_NOT_FOUND 처리
     List<Point> points =
         firstFeature.geometry().coordinates().stream()
             .map(
-                coord ->
-                    new Point(coord.get(0), coord.get(1), coord.size() > 2 ? coord.get(2) : 0.0))
+                coord -> {
+                  if (coord == null || coord.size() < 2) {
+                    throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
+                  }
+                  return new Point(coord.get(0), coord.get(1), coord.size() > 2 ? coord.get(2) : 0.0);
+                })
             .toList();
 
     return new WheelchairRouteResponse(summary.distance(), summary.duration(), points);

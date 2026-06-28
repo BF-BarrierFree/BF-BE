@@ -32,3 +32,14 @@ google:
 openrouteservice:
   base-url: https://api.openrouteservice.org
   api-key: ${ORS_API_KEY}
+
+tago:
+  api:
+    base-url: https://apis.data.go.kr/1613000/ArvlInfoInqireService
+    station-base-url: https://apis.data.go.kr/1613000/BusSttnInfoInqireService
+    service-key: ${TAGO_API_KEY}
+
+odsay:
+  api:
+    base-url: https://api.odsay.com
+    api-key: ${ODSAY_API_KEY}
