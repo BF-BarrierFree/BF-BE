@@ -2,6 +2,7 @@ package com.barrierfree.bf.route.service;
 
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,7 @@ public class KakaoMobilityService {
             List<String> avoid,
             Integer roadevent) { // 교통 장애(유고) 반영 옵션
 
-        log.info(
+        log.debug(
                 "카카오 실시간 길찾기 테스트 - 출발지: {}, 도착지: {}, priority: {}, roadevent: {}",
                 origin,
                 destination,
@@ -68,7 +69,7 @@ public class KakaoMobilityService {
                                         .flatMap(
                                                 errorBody -> {
                                                     log.error("카카오 실시간 길찾기 4xx 에러 발생: {}", errorBody);
-                                                    return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
+                                                    return Mono.error(new CustomException(ErrorCode.KAKAO_API_FAILED));
                                                 }))
                 .onStatus(
                         HttpStatusCode::is5xxServerError,
@@ -77,14 +78,15 @@ public class KakaoMobilityService {
                                         .flatMap(
                                                 errorBody -> {
                                                     log.error("카카오 실시간 길찾기 5xx 에러 발생: {}", errorBody);
-                                                    return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
+                                                    return Mono.error(new CustomException(ErrorCode.KAKAO_API_FAILED));
                                                 }))
                 .bodyToMono(String.class)
+                .timeout(Duration.ofSeconds(10))
                 .onErrorMap(
                         e -> {
                             if (!(e instanceof CustomException)) {
                                 log.error("카카오 실시간 길찾기 API 네트워크/타임아웃 에러: {}", e.getMessage());
-                                return new CustomException(ErrorCode.ODSAY_API_FAILED);
+                                return new CustomException(ErrorCode.KAKAO_API_TIMEOUT);
                             }
                             return e;
                         })
@@ -104,7 +106,7 @@ public class KakaoMobilityService {
             List<String> avoid,
             Integer roadevent) { // 교통 장애(유고) 반영 옵션
 
-        log.info(
+        log.debug(
                 "카카오 미래 운행 길찾기 테스트 - 출발지: {}, 도착지: {}, 출발시간: {}, priority: {}, roadevent: {}",
                 origin,
                 destination,
@@ -145,7 +147,7 @@ public class KakaoMobilityService {
                                         .flatMap(
                                                 errorBody -> {
                                                     log.error("카카오 미래 운행 길찾기 4xx 에러 발생: {}", errorBody);
-                                                    return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
+                                                    return Mono.error(new CustomException(ErrorCode.KAKAO_API_FAILED));
                                                 }))
                 .onStatus(
                         HttpStatusCode::is5xxServerError,
@@ -154,14 +156,15 @@ public class KakaoMobilityService {
                                         .flatMap(
                                                 errorBody -> {
                                                     log.error("카카오 미래 운행 길찾기 5xx 에러 발생: {}", errorBody);
-                                                    return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
+                                                    return Mono.error(new CustomException(ErrorCode.KAKAO_API_FAILED));
                                                 }))
                 .bodyToMono(String.class)
+                .timeout(Duration.ofSeconds(10))
                 .onErrorMap(
                         e -> {
                             if (!(e instanceof CustomException)) {
                                 log.error("카카오 미래 운행 길찾기 API 네트워크/타임아웃 에러: {}", e.getMessage());
-                                return new CustomException(ErrorCode.ODSAY_API_FAILED);
+                                return new CustomException(ErrorCode.KAKAO_API_TIMEOUT);
                             }
                             return e;
                         })
@@ -176,8 +179,10 @@ public class KakaoMobilityService {
         if (avoid == null || avoid.isEmpty()) {
             return null;
         }
-        return avoid.stream()
+        String result = avoid.stream()
                 .map(String::trim)
+                .filter(s -> s != null && !s.isEmpty())
                 .collect(Collectors.joining("|")); // 파이프(|) 연산자로 결합
+        return result.isEmpty() ? null : result;
     }
 }

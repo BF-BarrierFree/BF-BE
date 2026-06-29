@@ -40,40 +40,35 @@ public class OdsayRouteService {
                 "ODsay 대중교통 길찾기 연동 테스트 시작 - 출발지: {},{}, 도착지: {},{}, Type: {}, Time: {}, OPT: {}",
                 startLng, startLat, endLng, endLat, searchPathType, time, opt);
 
-        // 기본 필수 파라미터 셋팅
-        String requestUrl =
-                baseUrl
-                        + "/v1/api/searchPubTransPathT"
-                        + "?apiKey="
-                        + apiKey
-                        + "&SX="
-                        + startLng
-                        + "&SY="
-                        + startLat
-                        + "&EX="
-                        + endLng
-                        + "&EY="
-                        + endLat;
-
-        // [추가] 4. 버스/지하철 분리 파라미터 (0: 모두, 1: 지하철, 2: 버스)
-        if (searchPathType != null) {
-            requestUrl += "&SearchPathType=" + searchPathType;
-        }
-
-        // [추가] 1. 출발 시간 지정 파라미터 (ODsay 스펙상 시간 지정이 가능한지 테스트하기 위함)
-        if (time != null && !time.isEmpty()) {
-            requestUrl += "&time=" + time;
-        }
-
-        // [추가] 7. 경로 정렬 옵션 (0: 최적, 1: 최단시간, 2: 최소환승, 3: 최소도보)
-        if (opt != null) {
-            requestUrl += "&OPT=" + opt;
-        }
-
         String rawResponse =
                 webClient
                         .get()
-                        .uri(requestUrl)
+                        .uri(uriBuilder -> {
+                            uriBuilder
+                                    .path("/v1/api/searchPubTransPathT")
+                                    .queryParam("apiKey", apiKey)
+                                    .queryParam("SX", startLng)
+                                    .queryParam("SY", startLat)
+                                    .queryParam("EX", endLng)
+                                    .queryParam("EY", endLat);
+
+                            // [추가] 4. 버스/지하철 분리 파라미터 (0: 모두, 1: 지하철, 2: 버스)
+                            if (searchPathType != null) {
+                                uriBuilder.queryParam("SearchPathType", searchPathType);
+                            }
+
+                            // [추가] 1. 출발 시간 지정 파라미터 (ODsay 스펙상 시간 지정이 가능한지 테스트하기 위함)
+                            if (time != null && !time.isEmpty()) {
+                                uriBuilder.queryParam("time", time);
+                            }
+
+                            // [추가] 7. 경로 정렬 옵션 (0: 최적, 1: 최단시간, 2: 최소환승, 3: 최소도보)
+                            if (opt != null) {
+                                uriBuilder.queryParam("OPT", opt);
+                            }
+
+                            return uriBuilder.build();
+                        })
                         .retrieve()
                         .onStatus(
                                 HttpStatusCode::is4xxClientError,

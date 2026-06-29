@@ -45,6 +45,9 @@ public class CenterInfoRawResponse {
     public static class Body {
         @JsonFormat(with = JsonFormat.Feature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
         private List<Item> item;
+        private String totalCount;
+        private String numOfRows;
+        private String pageNo;
     }
 
     @Getter

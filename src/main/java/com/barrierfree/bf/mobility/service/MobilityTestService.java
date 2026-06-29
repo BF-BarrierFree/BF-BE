@@ -10,6 +10,7 @@ import com.barrierfree.bf.mobility.dto.external.CenterInfoRawResponse;
 import com.barrierfree.bf.mobility.dto.external.VehicleInfoRawResponse;
 import com.barrierfree.bf.mobility.dto.external.VehicleOperationRawResponse;
 import com.barrierfree.bf.mobility.dto.external.VehicleUseRawResponse;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -59,13 +60,17 @@ public class MobilityTestService {
     public List<VehicleOperationResponse> getVehicleOperationHistory(String stdgCd, String fromDate, String toDate) {
         log.info("[MobilityTestService] 차량 운행이력 외부 API 호출 시작. 지자체코드: {}", stdgCd);
 
-        // WebClientConfig에 EncodingMode.NONE이 설정되어 있으므로, 
-        // UriBuilder를 쓰지 않고 명시적으로 URL 문자열을 조립하여 넘기는 것이 인증키 인코딩 에러를 막는 가장 안전한 방법입니다.
-        String url = String.format("%s/info_vehicle_operation_v2?serviceKey=%s&pageNo=1&numOfRows=10&type=json&stdgCd=%s&fromCrtrYmd=%s&toCrtrYmd=%s",
-            baseUrl, serviceKey, stdgCd, fromDate, toDate);
-
         VehicleOperationRawResponse rawResponse = tagoWebClient.get()
-            .uri(url)
+            .uri(uriBuilder -> uriBuilder
+                .path("/info_vehicle_operation_v2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("pageNo", 1)
+                .queryParam("numOfRows", 10)
+                .queryParam("type", "json")
+                .queryParam("stdgCd", stdgCd)
+                .queryParam("fromCrtrYmd", fromDate)
+                .queryParam("toCrtrYmd", toDate)
+                .build())
             .retrieve()
             .bodyToMono(VehicleOperationRawResponse.class)
             .block(); // 테스트용 블로킹
@@ -101,11 +106,15 @@ public class MobilityTestService {
     public List<CenterInfoResponse> getCenterInfo(String stdgCd) {
         log.info("[MobilityTestService] 센터 상세 현황 외부 API 호출 시작. 지자체코드: {}", stdgCd);
 
-        String url = String.format("%s/center_info_v2?serviceKey=%s&pageNo=1&numOfRows=50&type=json&stdgCd=%s",
-            baseUrl, serviceKey, stdgCd);
-
         CenterInfoRawResponse rawResponse = tagoWebClient.get()
-            .uri(url)
+            .uri(uriBuilder -> uriBuilder
+                .path("/center_info_v2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("pageNo", 1)
+                .queryParam("numOfRows", 50)
+                .queryParam("type", "json")
+                .queryParam("stdgCd", stdgCd)
+                .build())
             .retrieve()
             .bodyToMono(CenterInfoRawResponse.class)
             .block();
@@ -136,33 +145,95 @@ public class MobilityTestService {
     public List<CenterInfoResponse> getAllCenterInfo() {
         log.info("[MobilityTestService] 전국 센터 현황 외부 API 전체 호출 시작");
 
-        // stdgCd 파라미터를 빼고, numOfRows를 500(전국 지자체 커버 가능하게 충분히 크게)으로 잡습니다.
-        String url = String.format("%s/center_info_v2?serviceKey=%s&pageNo=1&numOfRows=500&type=json",
-            baseUrl, serviceKey);
+        List<CenterInfoResponse> allItems = new ArrayList<>();
+        int pageNo = 1;
+        int numOfRows = 500;
+        int totalCount = 0;
 
-        CenterInfoRawResponse rawResponse = tagoWebClient.get()
-            .uri(url)
+        // 첫 페이지를 조회하여 totalCount 확인
+        CenterInfoRawResponse firstResponse = tagoWebClient.get()
+            .uri(uriBuilder -> uriBuilder
+                .path("/center_info_v2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("pageNo", pageNo)
+                .queryParam("numOfRows", numOfRows)
+                .queryParam("type", "json")
+                .build())
             .retrieve()
             .bodyToMono(CenterInfoRawResponse.class)
             .block();
 
-        if (rawResponse == null || rawResponse.getHeaderSafe() == null) {
+        if (firstResponse == null || firstResponse.getHeaderSafe() == null) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
-        String resultCode = rawResponse.getHeaderSafe().getResultCode();
+        String resultCode = firstResponse.getHeaderSafe().getResultCode();
         if (!"00".equals(resultCode) && !"K0".equals(resultCode) && !"200".equals(resultCode)) {
             log.error("[MobilityTestService] 전국 센터 현황 API 에러 발생. Code: {}", resultCode);
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
-        if (rawResponse.getBodySafe() == null || rawResponse.getBodySafe().getItem() == null) {
+        if (firstResponse.getBodySafe() == null || firstResponse.getBodySafe().getItem() == null) {
             return Collections.emptyList();
         }
 
-        return rawResponse.getBodySafe().getItem().stream()
+        // 첫 페이지 데이터 추가
+        allItems.addAll(firstResponse.getBodySafe().getItem().stream()
             .map(CenterInfoResponse::from)
-            .collect(Collectors.toList());
+            .collect(Collectors.toList()));
+
+        // totalCount 추출
+        if (firstResponse.getBodySafe().getTotalCount() != null) {
+            try {
+                totalCount = Integer.parseInt(firstResponse.getBodySafe().getTotalCount());
+                log.info("[MobilityTestService] 전국 센터 총 개수: {}", totalCount);
+            } catch (NumberFormatException e) {
+                log.warn("[MobilityTestService] totalCount 파싱 실패. 첫 페이지 결과만 반환합니다.");
+                return allItems;
+            }
+        } else {
+            log.warn("[MobilityTestService] totalCount 정보가 없습니다. 첫 페이지 결과만 반환합니다.");
+            return allItems;
+        }
+
+        // 나머지 페이지 조회
+        int totalPages = (int) Math.ceil((double) totalCount / numOfRows);
+        for (pageNo = 2; pageNo <= totalPages; pageNo++) {
+            log.info("[MobilityTestService] {}페이지 조회 중...", pageNo);
+
+            final int currentPage = pageNo;
+            CenterInfoRawResponse rawResponse = tagoWebClient.get()
+                .uri(uriBuilder -> uriBuilder
+                    .path("/center_info_v2")
+                    .queryParam("serviceKey", serviceKey)
+                    .queryParam("pageNo", currentPage)
+                    .queryParam("numOfRows", numOfRows)
+                    .queryParam("type", "json")
+                    .build())
+                .retrieve()
+                .bodyToMono(CenterInfoRawResponse.class)
+                .block();
+
+            if (rawResponse == null || rawResponse.getHeaderSafe() == null) {
+                log.error("[MobilityTestService] {}페이지 조회 실패", currentPage);
+                continue;
+            }
+
+            resultCode = rawResponse.getHeaderSafe().getResultCode();
+            if (!"00".equals(resultCode) && !"K0".equals(resultCode) && !"200".equals(resultCode)) {
+                log.error("[MobilityTestService] {}페이지 API 에러 발생. Code: {}", currentPage, resultCode);
+                continue;
+            }
+
+            if (rawResponse.getBodySafe() != null && rawResponse.getBodySafe().getItem() != null) {
+                allItems.addAll(rawResponse.getBodySafe().getItem().stream()
+                    .map(CenterInfoResponse::from)
+                    .collect(Collectors.toList()));
+            }
+        }
+
+        log.info("[MobilityTestService] 전국 센터 현황 전체 조회 완료. 총 {}개", allItems.size());
+        return allItems;
     }
 
     /**
@@ -171,11 +242,15 @@ public class MobilityTestService {
     public List<VehicleUseResponse> getVehicleUseInfo(String stdgCd) {
         log.info("[MobilityTestService] 실시간 이용 및 대기 현황 외부 API 호출 시작. 지자체코드: {}", stdgCd);
 
-        String url = String.format("%s/info_vehicle_use_v2?serviceKey=%s&pageNo=1&numOfRows=50&type=json&stdgCd=%s",
-            baseUrl, serviceKey, stdgCd);
-
         VehicleUseRawResponse rawResponse = tagoWebClient.get()
-            .uri(url)
+            .uri(uriBuilder -> uriBuilder
+                .path("/info_vehicle_use_v2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("pageNo", 1)
+                .queryParam("numOfRows", 50)
+                .queryParam("type", "json")
+                .queryParam("stdgCd", stdgCd)
+                .build())
             .retrieve()
             .bodyToMono(VehicleUseRawResponse.class)
             .block();
@@ -205,11 +280,15 @@ public class MobilityTestService {
     public List<VehicleInfoResponse> getVehicleInfo(String stdgCd) {
         log.info("[MobilityTestService] 차량 기본 스펙 외부 API 호출 시작. 지자체코드: {}", stdgCd);
 
-        String url = String.format("%s/info_vehicle_v2?serviceKey=%s&pageNo=1&numOfRows=100&type=json&stdgCd=%s",
-            baseUrl, serviceKey, stdgCd);
-
         VehicleInfoRawResponse rawResponse = tagoWebClient.get()
-            .uri(url)
+            .uri(uriBuilder -> uriBuilder
+                .path("/info_vehicle_v2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("pageNo", 1)
+                .queryParam("numOfRows", 100)
+                .queryParam("type", "json")
+                .queryParam("stdgCd", stdgCd)
+                .build())
             .retrieve()
             .bodyToMono(VehicleInfoRawResponse.class)
             .block();
