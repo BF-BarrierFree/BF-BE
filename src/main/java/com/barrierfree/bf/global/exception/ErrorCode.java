@@ -26,7 +26,9 @@ public enum ErrorCode {
   EXTERNAL_ROUTING_FAILED(
       HttpStatus.SERVICE_UNAVAILABLE, "R003", "길찾기 서버와의 통신이 원활하지 않습니다. 잠시 후 다시 시도해 주세요."),
   ODSAY_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "R004", "대중교통 길찾기 정보를 불러오는데 실패했습니다."),
-  TAGO_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "R005", "공공데이터(버스 정보)를 불러오는데 실패했습니다.");
+  TAGO_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "R005", "공공데이터(버스 정보)를 불러오는데 실패했습니다."),
+  KAKAO_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "R006", "카카오 모빌리티 길찾기 정보를 불러오는데 실패했습니다."),
+  KAKAO_API_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "R007", "카카오 모빌리티 API 응답이 지연되고 있습니다.");
 
   private final HttpStatus status; // HTTP 상태 코드
   private final String code; // 서비스 고유 에러 코드

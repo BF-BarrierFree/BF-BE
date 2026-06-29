@@ -37,9 +37,19 @@ tago:
   api:
     base-url: https://apis.data.go.kr/1613000/ArvlInfoInqireService
     station-base-url: https://apis.data.go.kr/1613000/BusSttnInfoInqireService
-    service-key: ${TAGO_API_KEY}
+    service-key: ${DATA_GO_KR_API_KEY}
 
 odsay:
   api:
     base-url: https://api.odsay.com
     api-key: ${ODSAY_API_KEY}
+
+kakao:
+  mobility:
+    base-url: https://apis-navi.kakaomobility.com
+    api-key: ${KAKAO_MOBILITY_API_KEY}
+
+mobility:
+  api:
+    base-url: https://apis.data.go.kr/B551982/tsdo_v2
+    service-key: ${DATA_GO_KR_API_KEY}

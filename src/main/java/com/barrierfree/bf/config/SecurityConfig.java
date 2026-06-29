@@ -72,7 +72,8 @@ public class SecurityConfig {
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/api/v1/test/places/**",
-                        "/api/v1/routes/**" // 로그인 없어도 가능한 기능이라 열어둠.
+                        "/api/v1/routes/**", // 로그인 없어도 가능한 기능이라 열어둠.
+                        "/api/v1/test/mobility/**" // 교통약자 이동지원 테스트 API
                         )
                     .permitAll()
                     // 나머지 모든 요청은 우선 인증 필요
