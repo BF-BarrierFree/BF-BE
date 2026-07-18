@@ -38,12 +38,14 @@ public class PlaceService {
           + "places.displayName,"
           + "places.formattedAddress,"
           + "places.location,"
-          + "places.accessibilityOptions";
+          + "places.accessibilityOptions,"
+          + "nextPageToken";
 
   @Value("${google.places.api-key}")
   private String googleApiKey;
 
   private final WebClient webClient;
+  private final PlaceSearchHistoryService placeSearchHistoryService;
 
   public PlaceAutocompleteResponse autocomplete(
       String keyword, String categoryValue, Double lat, Double lng, Integer radius) {
@@ -90,7 +92,13 @@ public class PlaceService {
   }
 
   public PlaceSearchResponse search(
-      String keyword, String categoryValue, Double lat, Double lng, Integer radius) {
+      String keyword,
+      String categoryValue,
+      Double lat,
+      Double lng,
+      Integer radius,
+      Integer pageSize,
+      String pageToken) {
     validateKeyword(keyword);
     PlaceCategory category = PlaceCategory.from(categoryValue);
 
@@ -98,10 +106,14 @@ public class PlaceService {
     requestBody.put("textQuery", keyword);
     requestBody.put("languageCode", "ko");
     requestBody.put("regionCode", "KR");
+    requestBody.put("pageSize", normalizePageSize(pageSize));
 
     String includedType = category.getPrimaryGoogleType();
     if (includedType != null) {
       requestBody.put("includedType", includedType);
+    }
+    if (pageToken != null && !pageToken.isBlank()) {
+      requestBody.put("pageToken", pageToken);
     }
     putLocationBias(requestBody, lat, lng, radius);
 
@@ -130,7 +142,13 @@ public class PlaceService {
               .toList();
     }
 
-    return new PlaceSearchResponse(places);
+    if (pageToken == null || pageToken.isBlank()) {
+      placeSearchHistoryService.save(keyword, category, lat, lng, radius);
+    }
+
+    String nextPageToken = googleResponse == null ? null : googleResponse.getNextPageToken();
+    return new PlaceSearchResponse(
+        places, nextPageToken, nextPageToken != null && !nextPageToken.isBlank());
   }
 
   private PlaceAutocompleteResponse.Suggestion toSuggestion(
@@ -192,5 +210,15 @@ public class PlaceService {
     if (keyword == null || keyword.isBlank()) {
       throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
     }
+  }
+
+  private int normalizePageSize(Integer pageSize) {
+    if (pageSize == null) {
+      return 20;
+    }
+    if (pageSize < 1) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+    return Math.min(pageSize, 20);
   }
 }

@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 public class GooglePlaceResponseDto {
 
   private List<Place> places;
+  private String nextPageToken;
 
   @Getter
   @NoArgsConstructor

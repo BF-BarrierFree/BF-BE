@@ -3,7 +3,7 @@ package com.barrierfree.bf.place.dto;
 import com.barrierfree.bf.place.domain.PlaceCategory;
 import java.util.List;
 
-public record PlaceSearchResponse(List<PlaceSummary> places) {
+public record PlaceSearchResponse(List<PlaceSummary> places, String nextPageToken, Boolean hasNext) {
 
   public record PlaceSummary(
       String placeId,
