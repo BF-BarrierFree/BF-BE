@@ -16,5 +16,17 @@ public record PlaceSearchResponse(List<PlaceSummary> places, String nextPageToke
       Boolean wheelchairAccessibleEntrance,
       Boolean wheelchairAccessibleParking,
       Boolean wheelchairAccessibleRestroom,
-      Boolean wheelchairAccessibleSeating) {}
+      Boolean wheelchairAccessibleSeating,
+      Boolean elevator,
+      Boolean ramp,
+      Boolean voiceGuidance,
+      Boolean brailleBlock,
+      Boolean hearingSupport,
+      Boolean strollerRental,
+      Boolean nursingRoom,
+      Boolean wheelchairRental,
+      Boolean signLanguage,
+      Boolean restArea,
+      Boolean subtitleService,
+      String accessibilityDataSource) {}
 }

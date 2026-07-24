@@ -2,11 +2,15 @@ package com.barrierfree.bf.place.service;
 
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
+import com.barrierfree.bf.place.domain.AccessibilityFacility;
+import com.barrierfree.bf.place.domain.AccessibilityUserType;
 import com.barrierfree.bf.place.domain.PlaceCategory;
 import com.barrierfree.bf.place.dto.GoogleAutocompleteResponseDto;
 import com.barrierfree.bf.place.dto.GooglePlaceResponseDto;
 import com.barrierfree.bf.place.dto.PlaceAutocompleteResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchResponse;
+import com.barrierfree.bf.place.dto.PublicBarrierFreeInfo;
+import com.barrierfree.bf.place.dto.PublicBarrierFreePlace;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +50,7 @@ public class PlaceService {
 
   private final WebClient webClient;
   private final PlaceSearchHistoryService placeSearchHistoryService;
+  private final TourBarrierFreeService tourBarrierFreeService;
 
   public PlaceAutocompleteResponse autocomplete(
       String keyword, String categoryValue, Double lat, Double lng, Integer radius) {
@@ -98,15 +103,19 @@ public class PlaceService {
       Double lng,
       Integer radius,
       Integer pageSize,
-      String pageToken) {
+      String pageToken,
+      List<AccessibilityUserType> userTypes,
+      List<AccessibilityFacility> facilities) {
     validateKeyword(keyword);
     PlaceCategory category = PlaceCategory.from(categoryValue);
+    int normalizedPageSize = normalizePageSize(pageSize);
+    boolean accessibilityFilterRequested = hasAccessibilityFilter(userTypes, facilities);
 
     Map<String, Object> requestBody = new HashMap<>();
     requestBody.put("textQuery", keyword);
     requestBody.put("languageCode", "ko");
     requestBody.put("regionCode", "KR");
-    requestBody.put("pageSize", normalizePageSize(pageSize));
+    requestBody.put("pageSize", normalizedPageSize);
 
     String includedType = category.getPrimaryGoogleType();
     if (includedType != null) {
@@ -117,29 +126,134 @@ public class PlaceService {
     }
     putLocationBias(requestBody, lat, lng, radius);
 
-    GooglePlaceResponseDto googleResponse =
-        webClient
-            .post()
-            .uri(TEXT_SEARCH_URL)
-            .header("X-Goog-Api-Key", googleApiKey)
-            .header("X-Goog-FieldMask", PLACE_FIELD_MASK)
-            .bodyValue(requestBody)
-            .retrieve()
-            .onStatus(
-                HttpStatusCode::isError,
-                response -> {
-                  log.error("Google Places Text Search failed. status={}", response.statusCode());
-                  return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
-                })
-            .bodyToMono(GooglePlaceResponseDto.class)
-            .block();
-
     List<PlaceSearchResponse.PlaceSummary> places = new ArrayList<>();
-    if (googleResponse != null && googleResponse.getPlaces() != null) {
-      places =
-          googleResponse.getPlaces().stream()
-              .map(place -> toPlaceSummary(place, category))
-              .toList();
+    List<PlaceSearchResponse.PlaceSummary> fallbackPlaces = new ArrayList<>();
+    GooglePlaceResponseDto googleResponse = null;
+    String nextRequestPageToken = pageToken;
+
+    if (pageToken == null || pageToken.isBlank()) {
+      for (String candidateQuery : buildCandidateQueries(keyword, categoryValue, lat, lng, radius)) {
+        if (places.size() >= normalizedPageSize) {
+          break;
+        }
+
+        List<PlaceSearchResponse.PlaceSummary> candidatePlaces = new ArrayList<>();
+
+        for (PlaceSearchResponse.PlaceSummary summary :
+            searchPublicExactCandidate(
+                candidateQuery,
+                category,
+                lat,
+                lng,
+                radius,
+                accessibilityFilterRequested)) {
+          if (candidatePlaces.size() >= normalizedPageSize) {
+            break;
+          }
+          if (matchesUserTypes(summary, userTypes)
+              && matchesFacilities(summary, facilities)
+              && isWithinSearchArea(summary, lat, lng, radius)
+              && !containsSamePlace(candidatePlaces, summary)) {
+            candidatePlaces.add(summary);
+          }
+        }
+
+        if (candidatePlaces.isEmpty()) {
+          for (PlaceSearchResponse.PlaceSummary summary :
+              searchGoogleExactCandidate(
+                  candidateQuery, category, lat, lng, radius, accessibilityFilterRequested)) {
+            if (candidatePlaces.size() >= normalizedPageSize) {
+              break;
+            }
+            if (matchesUserTypes(summary, userTypes)
+                && matchesFacilities(summary, facilities)
+                && isWithinSearchArea(summary, lat, lng, radius)
+                && !containsSamePlace(candidatePlaces, summary)) {
+              candidatePlaces.add(summary);
+            }
+          }
+        }
+
+        for (PlaceSearchResponse.PlaceSummary summary : candidatePlaces) {
+          if (places.size() >= normalizedPageSize) {
+            break;
+          }
+          if (!containsSamePlace(places, summary)) {
+            places.add(summary);
+          }
+        }
+      }
+    }
+
+    while (places.size() < normalizedPageSize) {
+      if (nextRequestPageToken != null && !nextRequestPageToken.isBlank()) {
+        requestBody.put("pageToken", nextRequestPageToken);
+      } else {
+        requestBody.remove("pageToken");
+      }
+
+      googleResponse = requestGoogleTextSearch(requestBody);
+
+        if (googleResponse != null && googleResponse.getPlaces() != null) {
+          List<PlaceSearchResponse.PlaceSummary> pagePlaces =
+              googleResponse.getPlaces().stream()
+                  .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested))
+                  .filter(place -> isWithinSearchArea(place, lat, lng, radius))
+                  .toList();
+
+        pagePlaces.stream()
+            .limit(Math.max(0, normalizedPageSize - fallbackPlaces.size()))
+            .forEach(fallbackPlaces::add);
+
+        if (accessibilityFilterRequested) {
+          List<PlaceSearchResponse.PlaceSummary> filteredPlaces =
+              pagePlaces.stream()
+                  .filter(place -> matchesUserTypes(place, userTypes))
+                  .filter(place -> matchesFacilities(place, facilities))
+                  .toList();
+
+          for (PlaceSearchResponse.PlaceSummary place : filteredPlaces) {
+            if (places.size() >= normalizedPageSize) {
+              break;
+            }
+            if (!containsSamePlace(places, place)) {
+              places.add(place);
+            }
+          }
+        } else {
+          List<PlaceSearchResponse.PlaceSummary> publicBacked = new ArrayList<>();
+          List<PlaceSearchResponse.PlaceSummary> others = new ArrayList<>();
+          for (PlaceSearchResponse.PlaceSummary place : pagePlaces) {
+            if (containsSamePlace(places, place)) {
+              continue;
+            }
+            if (hasPublicData(place)) {
+              publicBacked.add(place);
+            } else {
+              others.add(place);
+            }
+          }
+
+          for (PlaceSearchResponse.PlaceSummary place : publicBacked) {
+            if (places.size() >= normalizedPageSize) {
+              break;
+            }
+            places.add(place);
+          }
+
+          for (PlaceSearchResponse.PlaceSummary place : others) {
+            if (places.size() >= normalizedPageSize) {
+              break;
+            }
+            places.add(place);
+          }
+        }
+      }
+
+      nextRequestPageToken = googleResponse == null ? null : googleResponse.getNextPageToken();
+      if (!shouldScanNextPage(places.size(), normalizedPageSize, nextRequestPageToken)) {
+        break;
+      }
     }
 
     if (pageToken == null || pageToken.isBlank()) {
@@ -147,8 +261,241 @@ public class PlaceService {
     }
 
     String nextPageToken = googleResponse == null ? null : googleResponse.getNextPageToken();
+    if (places.isEmpty() && accessibilityFilterRequested) {
+      return new PlaceSearchResponse(List.of(), null, false);
+    }
+
+    if (places.isEmpty()) {
+      places = fallbackPlaces.stream().limit(normalizedPageSize).toList();
+    } else if (!accessibilityFilterRequested && places.size() < normalizedPageSize) {
+      for (PlaceSearchResponse.PlaceSummary fallbackPlace : fallbackPlaces) {
+        if (places.size() >= normalizedPageSize) {
+          break;
+        }
+        if (!containsSamePlace(places, fallbackPlace)) {
+          places.add(fallbackPlace);
+        }
+      }
+    }
+
     return new PlaceSearchResponse(
         places, nextPageToken, nextPageToken != null && !nextPageToken.isBlank());
+  }
+
+  private GooglePlaceResponseDto requestGoogleTextSearch(Map<String, Object> requestBody) {
+    return webClient
+        .post()
+        .uri(TEXT_SEARCH_URL)
+        .header("X-Goog-Api-Key", googleApiKey)
+        .header("X-Goog-FieldMask", PLACE_FIELD_MASK)
+        .bodyValue(requestBody)
+        .retrieve()
+        .onStatus(
+            HttpStatusCode::isError,
+            response -> {
+              log.error("Google Places Text Search failed. status={}", response.statusCode());
+              return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
+            })
+        .bodyToMono(GooglePlaceResponseDto.class)
+        .block();
+  }
+
+  private List<String> buildCandidateQueries(
+      String keyword, String categoryValue, Double lat, Double lng, Integer radius) {
+    List<String> candidates = new ArrayList<>();
+    try {
+      PlaceAutocompleteResponse autocompleteResponse =
+          autocomplete(keyword, categoryValue, lat, lng, radius);
+      if (autocompleteResponse != null && autocompleteResponse.suggestions() != null) {
+        for (PlaceAutocompleteResponse.Suggestion suggestion : autocompleteResponse.suggestions()) {
+          if (suggestion != null && suggestion.name() != null && !suggestion.name().isBlank()) {
+            addCandidateIfAbsent(candidates, suggestion.name());
+          }
+        }
+      }
+    } catch (RuntimeException e) {
+      log.warn("Autocomplete seed lookup failed. keyword={}", keyword, e);
+    }
+
+    if (candidates.isEmpty()) {
+      candidates.add(keyword);
+    }
+    return candidates;
+  }
+
+  private List<PlaceSearchResponse.PlaceSummary> searchPublicExactCandidate(
+      String candidateQuery,
+      PlaceCategory category,
+      Double lat,
+      Double lng,
+      Integer radius,
+      boolean accessibilityFilterRequested) {
+    List<PublicBarrierFreePlace> publicPlaces =
+        tourBarrierFreeService.searchByKeyword(candidateQuery, 5);
+    if (publicPlaces.isEmpty()) {
+      return List.of();
+    }
+
+    return publicPlaces.stream()
+        .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested))
+        .filter(place -> isWithinSearchArea(place, lat, lng, radius))
+        .toList();
+  }
+
+  private List<PlaceSearchResponse.PlaceSummary> searchGoogleExactCandidate(
+      String candidateQuery,
+      PlaceCategory category,
+      Double lat,
+      Double lng,
+      Integer radius,
+      boolean accessibilityFilterRequested) {
+    Map<String, Object> candidateRequestBody = new HashMap<>();
+    candidateRequestBody.put("textQuery", candidateQuery);
+    candidateRequestBody.put("languageCode", "ko");
+    candidateRequestBody.put("regionCode", "KR");
+    candidateRequestBody.put("pageSize", 5);
+    String includedType = category.getPrimaryGoogleType();
+    if (includedType != null) {
+      candidateRequestBody.put("includedType", includedType);
+    }
+    putLocationBias(candidateRequestBody, lat, lng, radius);
+
+    GooglePlaceResponseDto googleResponse = requestGoogleTextSearch(candidateRequestBody);
+    if (googleResponse == null || googleResponse.getPlaces() == null) {
+      return List.of();
+    }
+
+    return googleResponse.getPlaces().stream()
+        .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested))
+        .toList();
+  }
+
+  private void addCandidateIfAbsent(List<String> candidates, String candidate) {
+    String normalizedCandidate = normalize(candidate);
+    if (normalizedCandidate.isBlank()) {
+      return;
+    }
+    boolean exists =
+        candidates.stream().anyMatch(existing -> normalize(existing).equals(normalizedCandidate));
+    if (!exists) {
+      candidates.add(candidate);
+    }
+  }
+
+  private boolean shouldScanNextPage(
+      int resultCount, int pageSize, String nextPageToken) {
+    return resultCount < pageSize
+        && nextPageToken != null
+        && !nextPageToken.isBlank();
+  }
+
+  private boolean hasAccessibilityFilter(
+      List<AccessibilityUserType> userTypes, List<AccessibilityFacility> facilities) {
+    return (userTypes != null && !userTypes.isEmpty())
+        || (facilities != null && !facilities.isEmpty());
+  }
+
+  private boolean isWithinSearchArea(
+      PlaceSearchResponse.PlaceSummary place, Double lat, Double lng, Integer radius) {
+    return isWithinSearchArea(place.latitude(), place.longitude(), lat, lng, radius);
+  }
+
+  private boolean isWithinSearchArea(
+      Double placeLat, Double placeLng, Double centerLat, Double centerLng, Integer radius) {
+    if (centerLat == null || centerLng == null) {
+      return true;
+    }
+    if (placeLat == null || placeLng == null) {
+      return false;
+    }
+
+    double meters = radius == null ? 500.0 : radius.doubleValue();
+    double earthRadius = 6371000.0;
+    double lat1 = Math.toRadians(centerLat);
+    double lat2 = Math.toRadians(placeLat);
+    double deltaLat = Math.toRadians(placeLat - centerLat);
+    double deltaLng = Math.toRadians(placeLng - centerLng);
+    double a =
+        Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+            + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadius * c <= meters;
+  }
+
+  private boolean matchesUserTypes(
+      PlaceSearchResponse.PlaceSummary place, List<AccessibilityUserType> userTypes) {
+    if (userTypes == null || userTypes.isEmpty()) {
+      return true;
+    }
+
+    for (AccessibilityUserType userType : userTypes) {
+      if (userType == null) {
+        continue;
+      }
+      boolean matched =
+          switch (userType) {
+            case WHEELCHAIR_USER ->
+                Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
+                    || Boolean.TRUE.equals(place.wheelchairAccessibleParking())
+                    || Boolean.TRUE.equals(place.wheelchairAccessibleRestroom())
+                    || Boolean.TRUE.equals(place.wheelchairAccessibleSeating())
+                    || Boolean.TRUE.equals(place.ramp())
+                    || Boolean.TRUE.equals(place.elevator());
+            case STROLLER ->
+                Boolean.TRUE.equals(place.strollerRental())
+                    || Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
+                    || Boolean.TRUE.equals(place.elevator());
+            case COGNITIVE_DEVELOPMENTAL_DISABILITY ->
+                Boolean.TRUE.equals(place.restArea())
+                    || Boolean.TRUE.equals(place.nursingRoom())
+                    || Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
+                    || Boolean.TRUE.equals(place.wheelchairAccessibleRestroom())
+                    || Boolean.TRUE.equals(place.elevator());
+            case VISUAL_IMPAIRED ->
+                Boolean.TRUE.equals(place.voiceGuidance())
+                    || Boolean.TRUE.equals(place.brailleBlock());
+            case HEARING_IMPAIRED ->
+                Boolean.TRUE.equals(place.signLanguage())
+                    || Boolean.TRUE.equals(place.subtitleService())
+                    || Boolean.TRUE.equals(place.hearingSupport());
+          };
+      if (matched) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean matchesFacilities(
+      PlaceSearchResponse.PlaceSummary place, List<AccessibilityFacility> facilities) {
+    if (facilities == null || facilities.isEmpty()) {
+      return true;
+    }
+
+    for (AccessibilityFacility facility : facilities) {
+      if (facility == null) {
+        continue;
+      }
+      boolean matched =
+          switch (facility) {
+            case ELEVATOR -> Boolean.TRUE.equals(place.elevator());
+            case ACCESSIBLE_PARKING -> Boolean.TRUE.equals(place.wheelchairAccessibleParking());
+            case WHEELCHAIR_SEAT -> Boolean.TRUE.equals(place.wheelchairAccessibleSeating());
+            case ACCESSIBLE_RESTROOM -> Boolean.TRUE.equals(place.wheelchairAccessibleRestroom());
+            case RAMP -> Boolean.TRUE.equals(place.ramp());
+            case VOICE_GUIDANCE -> Boolean.TRUE.equals(place.voiceGuidance());
+            case BRAILLE_BLOCK -> Boolean.TRUE.equals(place.brailleBlock());
+            case WHEELCHAIR_RENTAL -> Boolean.TRUE.equals(place.wheelchairRental());
+            case SIGN_LANGUAGE -> Boolean.TRUE.equals(place.signLanguage());
+            case REST_AREA -> Boolean.TRUE.equals(place.restArea());
+            case NURSING_ROOM -> Boolean.TRUE.equals(place.nursingRoom());
+            case SUBTITLE_SERVICE -> Boolean.TRUE.equals(place.subtitleService());
+          };
+      if (matched) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private PlaceAutocompleteResponse.Suggestion toSuggestion(
@@ -171,22 +518,120 @@ public class PlaceService {
   }
 
   private PlaceSearchResponse.PlaceSummary toPlaceSummary(
-      GooglePlaceResponseDto.Place place, PlaceCategory category) {
+      GooglePlaceResponseDto.Place place,
+      PlaceCategory category,
+      boolean accessibilityFilterRequested) {
     GooglePlaceResponseDto.Location location = place.getLocation();
     GooglePlaceResponseDto.AccessibilityOptions accessibility = place.getAccessibilityOptions();
+    String name = place.getDisplayName() == null ? null : place.getDisplayName().getText();
+    PublicBarrierFreeInfo publicInfo = tourBarrierFreeService.findByPlaceName(name);
 
     return new PlaceSearchResponse.PlaceSummary(
         place.getId(),
-        place.getDisplayName() == null ? null : place.getDisplayName().getText(),
+        name,
         place.getFormattedAddress(),
         location == null ? null : location.getLatitude(),
         location == null ? null : location.getLongitude(),
         category,
         category.getLabel(),
-        accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
-        accessibility == null ? null : accessibility.getWheelchairAccessibleParking(),
-        accessibility == null ? null : accessibility.getWheelchairAccessibleRestroom(),
-        accessibility == null ? null : accessibility.getWheelchairAccessibleSeating());
+        merge(accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
+            publicInfo.ramp()),
+        merge(
+            accessibility == null ? null : accessibility.getWheelchairAccessibleParking(),
+            publicInfo.accessibleParking()),
+        merge(
+            accessibility == null ? null : accessibility.getWheelchairAccessibleRestroom(),
+            publicInfo.accessibleRestroom()),
+        merge(
+            accessibility == null ? null : accessibility.getWheelchairAccessibleSeating(),
+            publicInfo.wheelchairSeat()),
+        publicInfo.elevator(),
+        publicInfo.ramp(),
+        publicInfo.voiceGuidance(),
+        publicInfo.brailleBlock(),
+        publicInfo.hearingSupport(),
+        publicInfo.strollerRental(),
+        publicInfo.nursingRoom(),
+        publicInfo.wheelchairRental(),
+        publicInfo.signLanguage(),
+        publicInfo.restArea(),
+        publicInfo.subtitleService(),
+        resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested));
+  }
+
+  private PlaceSearchResponse.PlaceSummary toPlaceSummary(
+      PublicBarrierFreePlace place,
+      PlaceCategory category,
+      boolean accessibilityFilterRequested) {
+    PublicBarrierFreeInfo publicInfo = place.barrierFreeInfo();
+
+    return new PlaceSearchResponse.PlaceSummary(
+        "PUBLIC_DATA:" + place.contentId(),
+        place.name(),
+        place.address(),
+        place.latitude(),
+        place.longitude(),
+        category,
+        category.getLabel(),
+        publicInfo.ramp(),
+        publicInfo.accessibleParking(),
+        publicInfo.accessibleRestroom(),
+        publicInfo.wheelchairSeat(),
+        publicInfo.elevator(),
+        publicInfo.ramp(),
+        publicInfo.voiceGuidance(),
+        publicInfo.brailleBlock(),
+        publicInfo.hearingSupport(),
+        publicInfo.strollerRental(),
+        publicInfo.nursingRoom(),
+        publicInfo.wheelchairRental(),
+        publicInfo.signLanguage(),
+        publicInfo.restArea(),
+        publicInfo.subtitleService(),
+        resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested));
+  }
+
+  private String resolveAccessibilityDataSource(
+      PublicBarrierFreeInfo publicInfo, boolean accessibilityFilterRequested) {
+    if (publicInfo.hasAnyValue()) {
+      return publicInfo.sourceStatus();
+    }
+    return accessibilityFilterRequested ? publicInfo.sourceStatus() : "GOOGLE_PLACES_ONLY";
+  }
+
+  private boolean hasPublicData(PlaceSearchResponse.PlaceSummary place) {
+    return "GOOGLE_PLACES_AND_PUBLIC_DATA".equals(place.accessibilityDataSource());
+  }
+
+  private boolean containsSamePlace(
+      List<PlaceSearchResponse.PlaceSummary> places, PlaceSearchResponse.PlaceSummary target) {
+    return places.stream().anyMatch(place -> isSamePlace(place, target));
+  }
+
+  private boolean isSamePlace(
+      PlaceSearchResponse.PlaceSummary left, PlaceSearchResponse.PlaceSummary right) {
+    String leftName = normalize(left.name());
+    String rightName = normalize(right.name());
+    if (leftName.isBlank() || rightName.isBlank()) {
+      return false;
+    }
+    return leftName.equals(rightName)
+        || leftName.contains(rightName)
+        || rightName.contains(leftName);
+  }
+
+  private String normalize(String value) {
+    return value == null ? "" : value.replaceAll("\\s+", "").toLowerCase();
+  }
+
+  private Boolean merge(Boolean googleValue, Boolean publicValue) {
+    if (Boolean.TRUE.equals(googleValue) || Boolean.TRUE.equals(publicValue)) {
+      return true;
+    }
+    if (Boolean.FALSE.equals(googleValue) || Boolean.FALSE.equals(publicValue)) {
+      return false;
+    }
+    return null;
   }
 
   private void putLocationBias(
