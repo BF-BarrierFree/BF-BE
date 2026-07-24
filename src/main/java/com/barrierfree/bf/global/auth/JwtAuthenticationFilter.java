@@ -29,14 +29,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
         throws ServletException, IOException {
-        
+
         try {
             // 1. Request Header에서 토큰 추출
             String jwt = getJwtFromRequest(request);
 
             // 2. 토큰이 존재하고 유효한지 검사
             if (StringUtils.hasText(jwt) && jwtProvider.validateToken(jwt)) {
-                
+
                 // 3. 토큰에서 유저 ID 추출
                 Long userId = jwtProvider.getUserIdFromToken(jwt);
 
@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // (Role 정보를 디테일하게 제어하려면 Claims에서 Role을 꺼내와야 하지만, MVP에서는 통과 여부가 핵심입니다)
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-                
+
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 // 4. Spring Security Context에 인증 정보 저장 (이후 컨트롤러에서 @AuthenticationPrincipal로 꺼내 씀)

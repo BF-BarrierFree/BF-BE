@@ -36,7 +36,7 @@ public class AuthService {
 
         // 3. DB에서 유저 조회 및 가입 처리
         Optional<User> optionalUser = userRepository.findBySocialIdAndIsDeletedFalse(socialId);
-        
+
         User user;
         boolean isNewUser = false;
 
@@ -45,7 +45,7 @@ public class AuthService {
             log.info("기존 유저 로그인 성공: {}", user.getNickname());
         } else {
             // 신규 유저인 경우 GUEST 권한으로 가입 (온보딩 필요)
-            user = registerNewUser(socialId, kakaoUserInfo);
+            user = registerNewUser(socialId); // kakaoUserInfo 파라미터 제거
             isNewUser = true;
             log.info("신규 유저 가입 완료: {}", user.getNickname());
         }
@@ -68,16 +68,18 @@ public class AuthService {
 
     /**
      * 신규 유저 생성 헬퍼 메서드
+     * 카카오 프로필 정보를 수집하지 않는 기획에 따라, 소셜 고유 ID만으로 유저를 생성합니다.
      */
-    private User registerNewUser(String socialId, KakaoUserInfoResponse kakaoUserInfo) {
-        String nickname = kakaoUserInfo.kakaoAccount().profile().nickname();
-        String profileImageUrl = kakaoUserInfo.kakaoAccount().profile().profileImageUrl();
+    private User registerNewUser(String socialId) {
+        // 기획에 맞게 닉네임과 프로필 이미지는 온보딩 또는 자체 로직으로 처리
+        // DB 테이블 제약조건에 따라 초기 닉네임은 랜덤 문자열(UUID 등)이나 "신규유저" 등으로 임시 할당할 수 있습니다.
+        String temporaryNickname = "무장애여행자_" + socialId.substring(Math.max(0, socialId.length() - 4));
 
         User newUser = User.builder()
             .socialId(socialId)
-            .nickname(nickname)
-            .profileImageUrl(profileImageUrl)
-            .role(Role.GUEST) // 온보딩 전이므로 GUEST 권한 부여
+            .nickname(temporaryNickname) // 임시 닉네임 부여 (온보딩 시 수정)
+            .profileImageUrl(null)       // 기본 프로필 이미지는 프론트에서 처리하거나 NULL
+            .role(Role.GUEST)            // 온보딩 전이므로 GUEST 권한 부여
             .build();
 
         return userRepository.save(newUser);
