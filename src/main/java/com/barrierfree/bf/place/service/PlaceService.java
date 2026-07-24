@@ -7,6 +7,7 @@ import com.barrierfree.bf.place.domain.AccessibilityUserType;
 import com.barrierfree.bf.place.domain.PlaceCategory;
 import com.barrierfree.bf.place.dto.GoogleAutocompleteResponseDto;
 import com.barrierfree.bf.place.dto.GooglePlaceResponseDto;
+import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.PlaceAutocompleteResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchResponse;
 import com.barrierfree.bf.place.dto.PublicBarrierFreeInfo;
@@ -49,6 +50,7 @@ public class PlaceService {
   private String googleApiKey;
 
   private final WebClient webClient;
+  private final PlaceTestService placeTestService;
   private final PlaceSearchHistoryService placeSearchHistoryService;
   private final TourBarrierFreeService tourBarrierFreeService;
 
@@ -94,6 +96,100 @@ public class PlaceService {
     }
 
     return new PlaceAutocompleteResponse(suggestions);
+  }
+
+  public PlaceDetailResponse getDetail(String placeId) {
+    if (placeId == null || placeId.isBlank()) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    if (placeId.startsWith("PUBLIC_DATA:")) {
+      String contentId = placeId.substring("PUBLIC_DATA:".length());
+      PublicBarrierFreePlace publicPlace = tourBarrierFreeService.findByContentId(contentId);
+      if (publicPlace == null) {
+        throw new CustomException(ErrorCode.FACILITY_NOT_FOUND);
+      }
+
+      PublicBarrierFreeInfo publicInfo = publicPlace.barrierFreeInfo();
+      return new PlaceDetailResponse(
+          placeId,
+          publicPlace.name(),
+          publicPlace.address(),
+          publicPlace.latitude(),
+          publicPlace.longitude(),
+          PlaceCategory.ETC,
+          PlaceCategory.ETC.getLabel(),
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          publicInfo.elevator(),
+          publicInfo.ramp(),
+          publicInfo.voiceGuidance(),
+          publicInfo.brailleBlock(),
+          publicInfo.hearingSupport(),
+          publicInfo.strollerRental(),
+          publicInfo.nursingRoom(),
+          publicInfo.wheelchairRental(),
+          publicInfo.signLanguage(),
+          publicInfo.restArea(),
+          publicInfo.subtitleService(),
+          publicInfo.sourceStatus());
+    }
+
+    GooglePlaceResponseDto.Place place = placeTestService.getPlaceDetails(placeId);
+    if (place == null) {
+      throw new CustomException(ErrorCode.FACILITY_NOT_FOUND);
+    }
+
+    GooglePlaceResponseDto.Location location = place.getLocation();
+    GooglePlaceResponseDto.AccessibilityOptions accessibility = place.getAccessibilityOptions();
+    GooglePlaceResponseDto.OpeningHours openingHours = place.getRegularOpeningHours();
+    String name = place.getDisplayName() == null ? null : place.getDisplayName().getText();
+    PlaceCategory category = PlaceCategory.inferFromTypes(place.getTypes());
+    PublicBarrierFreeInfo publicInfo = tourBarrierFreeService.findByPlaceName(name);
+
+    Integer reviewCount = place.getReviews() == null ? null : place.getReviews().size();
+
+    return new PlaceDetailResponse(
+        place.getId(),
+        name,
+        place.getFormattedAddress(),
+        location == null ? null : location.getLatitude(),
+        location == null ? null : location.getLongitude(),
+        category,
+        category.getLabel(),
+        place.getNationalPhoneNumber(),
+        place.getWebsiteUri(),
+        openingHours == null ? null : openingHours.getOpenNow(),
+        reviewCount,
+        merge(accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
+            publicInfo.ramp()),
+        merge(
+            accessibility == null ? null : accessibility.getWheelchairAccessibleParking(),
+            publicInfo.accessibleParking()),
+        merge(
+            accessibility == null ? null : accessibility.getWheelchairAccessibleRestroom(),
+            publicInfo.accessibleRestroom()),
+        merge(
+            accessibility == null ? null : accessibility.getWheelchairAccessibleSeating(),
+            publicInfo.wheelchairSeat()),
+        publicInfo.elevator(),
+        publicInfo.ramp(),
+        publicInfo.voiceGuidance(),
+        publicInfo.brailleBlock(),
+        publicInfo.hearingSupport(),
+        publicInfo.strollerRental(),
+        publicInfo.nursingRoom(),
+        publicInfo.wheelchairRental(),
+        publicInfo.signLanguage(),
+        publicInfo.restArea(),
+        publicInfo.subtitleService(),
+        resolveAccessibilityDataSource(publicInfo, false));
   }
 
   public PlaceSearchResponse search(

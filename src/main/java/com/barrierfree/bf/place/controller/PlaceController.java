@@ -4,6 +4,7 @@ import com.barrierfree.bf.global.response.ApiResponse;
 import com.barrierfree.bf.place.domain.AccessibilityFacility;
 import com.barrierfree.bf.place.domain.AccessibilityUserType;
 import com.barrierfree.bf.place.dto.PlaceAutocompleteResponse;
+import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchHistoryResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchResponse;
 import com.barrierfree.bf.place.service.PlaceSearchHistoryService;
@@ -16,6 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,12 +37,11 @@ public class PlaceController {
       @Parameter(description = "검색어", example = "롯데")
           @RequestParam(required = false)
           String keyword,
-      @Parameter(description = "keyword의 alias", example = "롯데")
+      @Parameter(description = "keyword alias", example = "롯데")
           @RequestParam(required = false)
           String input,
       @Parameter(
-              description =
-                  "장소 카테고리. FOOD_CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
+              description = "장소 카테고리. FOOD_CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
               example = "TOUR_CULTURE")
           @RequestParam(required = false)
           String category,
@@ -62,17 +63,16 @@ public class PlaceController {
   @GetMapping("/search")
   @Operation(
       summary = "장소 검색",
-      description = "키워드와 카테고리로 장소 목록을 검색합니다. userTypes/facilities는 콤마로 여러 개 입력합니다.")
+      description = "키워드와 카테고리로 장소를 검색합니다. userTypes/facilities는 콤마로 구분해 입력합니다.")
   public ApiResponse<PlaceSearchResponse> search(
       @Parameter(description = "검색어", example = "롯데")
           @RequestParam(required = false)
           String keyword,
-      @Parameter(description = "keyword의 alias", example = "롯데")
+      @Parameter(description = "keyword alias", example = "롯데")
           @RequestParam(required = false)
           String query,
       @Parameter(
-              description =
-                  "장소 카테고리. FOOD_CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
+              description = "장소 카테고리. FOOD_CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
               example = "TOUR_CULTURE")
           @RequestParam(required = false)
           String category,
@@ -85,19 +85,19 @@ public class PlaceController {
       @Parameter(description = "bias 반경(m)", example = "500")
           @RequestParam(defaultValue = "500", required = false)
           Integer radius,
-      @Parameter(description = "한 번에 반환할 개수. 최대 20개.", example = "10")
+      @Parameter(description = "한 번에 반환할 개수", example = "10")
           @RequestParam(defaultValue = "20", required = false)
           Integer pageSize,
-      @Parameter(description = "이전 검색 응답의 nextPageToken")
+      @Parameter(description = "다음 페이지 토큰")
           @RequestParam(required = false)
           String pageToken,
       @Parameter(
-              description = "이용자 유형. 예: 휠체어 이용자,유아차 동반,인지/발달 장애,시각 장애,청각 장애",
+              description = "이용자 유형을 콤마로 입력. 예: 휠체어 이용자,유아차 동반,인지/발달 장애,시각 장애,청각 장애",
               schema = @Schema(type = "string"))
           @RequestParam(required = false)
           String userTypes,
       @Parameter(
-              description = "필요시설. 예: 엘리베이터,경사로,장애인 화장실,수어통역,장애인 주차장,자막 서비스,전동 휠체어 대여,수유실,휠체어 좌석,휴게공간,음성안내,점자블록",
+              description = "필요시설을 콤마로 입력. 예: 엘리베이터,경사로,장애인 화장실,수어통역,장애인 주차장,자막 서비스,전동 휠체어 대여,수유실,휠체어 좌석,휴게공간,음성안내,점자블록",
               schema = @Schema(type = "string"))
           @RequestParam(required = false)
           String facilities) {
@@ -118,10 +118,20 @@ public class PlaceController {
     return ApiResponse.success(response, "장소 검색에 성공했습니다.");
   }
 
+  @GetMapping("/{placeId}")
+  @Operation(summary = "장소 상세조회", description = "검색 결과의 placeId를 기준으로 상세 정보를 조회합니다.")
+  public ApiResponse<PlaceDetailResponse> detail(
+      @Parameter(description = "장소 ID", example = "ChIJgf4OJaelfDURmDvA_sHyPUM")
+          @PathVariable
+          String placeId) {
+    PlaceDetailResponse response = placeService.getDetail(placeId);
+    return ApiResponse.success(response, "장소 상세조회에 성공했습니다.");
+  }
+
   @GetMapping("/search-histories")
-  @Operation(summary = "최근 장소 검색 기록 조회", description = "최근 검색한 장소 키워드 목록을 조회합니다.")
+  @Operation(summary = "최근 장소 검색 기록 조회", description = "최근 검색한 장소 기록 목록을 조회합니다.")
   public ApiResponse<PlaceSearchHistoryResponse> getSearchHistories(
-      @Parameter(description = "조회할 검색 기록 수. 최대 50개.", example = "10")
+      @Parameter(description = "조회할 검색 기록 수", example = "10")
           @RequestParam(defaultValue = "10", required = false)
           Integer size) {
     PlaceSearchHistoryResponse response = placeSearchHistoryService.getRecent(size);
