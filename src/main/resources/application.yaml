@@ -9,18 +9,12 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update # 배포 시 validate 필수
+      ddl-auto: validate
     properties:
       hibernate:
         show_sql: true # 배포 시 false로 바꿀 것
         format_sql: true # 배포 시 false로 바꿀 것
         use_sql_comments: true # 배포 시 false로 바꿀 것
-
-  # --- 파일 업로드(Multipart) 용량 제한 설정 ---
-  servlet:
-    multipart:
-      max-file-size: 20MB       # 파일 하나당 최대 허용 크기 (리뷰용 고화질 사진 대비)
-      max-request-size: 100MB    # 한 번의 요청에 포함될 수 있는 전체 파일의 최대 크기 (다중 이미지 업로드 대비)
 
 app:
   url: ${APP_URL:http://localhost:8080}
@@ -43,67 +37,9 @@ tago:
   api:
     base-url: https://apis.data.go.kr/1613000/ArvlInfoInqireService
     station-base-url: https://apis.data.go.kr/1613000/BusSttnInfoInqireService
-    taxi-center-base-url: https://apis.data.go.kr/B551982/tsdo_v2
-    service-key: ${DATA_GO_KR_API_KEY}
+    service-key: ${TAGO_API_KEY}
 
 odsay:
   api:
     base-url: https://api.odsay.com
     api-key: ${ODSAY_API_KEY}
-
-# --- 카카오 로그인 및 JWT 설정 ---
-oauth2:
-  kakao:
-    client-id: ${KAKAO_CLIENT_ID}
-    client-secret: ${KAKAO_CLIENT_SECRET}
-    redirect-uri: ${KAKAO_REDIRECT_URI}
-    token-uri: https://kauth.kakao.com/oauth/token
-    user-info-uri: https://kapi.kakao.com/v2/user/me
-
-jwt:
-  secret: ${JWT_SECRET}
-  access-expiration: ${JWT_ACCESS_EXPIRATION}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
-
-# --- Cloudflare R2 설정 ---
-cloud:
-  cloudflare:
-    r2:
-      credentials:
-        access-key: ${R2_ACCESS_KEY}
-        secret-key: ${R2_SECRET_KEY}
-      bucket: ${R2_BUCKET}
-      endpoint: ${R2_ENDPOINT}
-      region: auto
-      public-url: ${R2_PUBLIC_URL}
-
-# --- Embedding용 Jina API 설정 ---
-jina:
-  api-key: ${JINA_API_KEY}
-
-# --- LLM API 연동 (OpenRouter, 택시 폼 스키마/요금 예상 전용) ---
-openrouter:
-  api:
-    base-url: https://openrouter.ai/api/v1/chat/completions
-    api-key: ${OPENROUTER_API_KEY}
-    model: ${OPENROUTER_MODEL:nvidia/nemotron-3-ultra-550b-a55b:free}
-
----
-spring:
-  config:
-    activate:
-      on-profile: local
-
-cloud:
-  cloudflare:
-    r2:
-      credentials:
-        access-key: ${R2_ACCESS_KEY:local-r2-access-key}
-        secret-key: ${R2_SECRET_KEY:local-r2-secret-key}
-      bucket: ${R2_BUCKET:bf-images}
-      endpoint: ${R2_ENDPOINT:http://localhost:9000}
-      region: auto
-      public-url: ${R2_PUBLIC_URL:http://localhost:9000/bf-images}
-
-jina:
-  api-key: ${JINA_API_KEY:local-jina-api-key}
