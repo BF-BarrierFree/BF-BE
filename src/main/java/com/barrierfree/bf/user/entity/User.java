@@ -40,7 +40,7 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String socialId;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 50, unique = true)
     private String nickname;
 
     // 카카오 프로필 이미지 URL (기본 제공 이미지가 있을 수 있음)
@@ -70,23 +70,6 @@ public class User extends BaseEntity {
     @Column(length = 500)
     private String refreshToken;
 
-    // --- 약관 동의 (PM 기획 반영 전 실무 표준 구조) ---
-    // 필수 약관 동의 여부 (서비스 이용약관, 개인정보 수집 등)
-    @Column(nullable = false)
-    private boolean isRequiredTermsAgreed = false;
-    
-    // 위치정보 수집 동의 (선택이지만 지도 서비스라 중요함)
-    @Column(nullable = false)
-    private boolean isLocationTermsAgreed = false;
-    
-    // 선택 마케팅 수신 동의 여부
-    @Column(nullable = false)
-    private boolean isMarketingAgreed = false;
-
-    // 약관 동의 일시
-    private LocalDateTime termsAgreedAt;
-    // ----------------------------------------------------
-
     @Column(nullable = false)
     private boolean isDeleted = false;
 
@@ -101,16 +84,6 @@ public class User extends BaseEntity {
     }
 
     /**
-     * 회원가입(최초 로그인) 후 온보딩 시 약관 동의 내역을 업데이트합니다.
-     */
-    public void agreeTerms(boolean isRequiredTermsAgreed, boolean isLocationTermsAgreed, boolean isMarketingAgreed) {
-        this.isRequiredTermsAgreed = isRequiredTermsAgreed;
-        this.isLocationTermsAgreed = isLocationTermsAgreed;
-        this.isMarketingAgreed = isMarketingAgreed;
-        this.termsAgreedAt = LocalDateTime.now();
-    }
-
-    /**
      * 로그인 시 Refresh Token을 업데이트합니다.
      */
     public void updateRefreshToken(String refreshToken) {
@@ -119,9 +92,10 @@ public class User extends BaseEntity {
 
     /**
      * 회원이 온보딩을 완료하고 추가 정보를 기입했을 때 호출됩니다.
-     * 권한이 GUEST에서 USER로 승급됩니다.
+     * 권한이 GUEST에서 USER로 승급되며, 입력한 닉네임과 다중 선택 정보를 저장합니다.
      */
-    public void completeOnboarding(List<MobilityType> mobilities, List<FacilityType> facilities) {
+    public void completeOnboarding(String nickname, List<MobilityType> mobilities, List<FacilityType> facilities) {
+        this.nickname = nickname;
         this.mobilities = mobilities != null ? mobilities : new ArrayList<>();
         this.facilities = facilities != null ? facilities : new ArrayList<>();
         this.role = Role.USER;
