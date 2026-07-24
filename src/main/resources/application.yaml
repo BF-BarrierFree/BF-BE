@@ -9,7 +9,7 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update # 배포 시 validate 필수
     properties:
       hibernate:
         show_sql: true # 배포 시 false로 바꿀 것
@@ -37,9 +37,23 @@ tago:
   api:
     base-url: https://apis.data.go.kr/1613000/ArvlInfoInqireService
     station-base-url: https://apis.data.go.kr/1613000/BusSttnInfoInqireService
-    service-key: ${TAGO_API_KEY}
+    service-key: ${DATA_GO_KR_API_KEY}
 
 odsay:
   api:
     base-url: https://api.odsay.com
     api-key: ${ODSAY_API_KEY}
+
+# --- 카카오 로그인 및 JWT 설정 ---
+oauth2:
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    client-secret: ${KAKAO_CLIENT_SECRET}
+    redirect-uri: ${KAKAO_REDIRECT_URI}
+    token-uri: https://kauth.kakao.com/oauth/token
+    user-info-uri: https://kapi.kakao.com/v2/user/me
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiration: ${JWT_ACCESS_EXPIRATION}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
