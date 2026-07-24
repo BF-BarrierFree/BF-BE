@@ -56,8 +56,10 @@ public class KakaoOAuthClient {
                 .with("code", authorizationCode)
                 .with("client_secret", clientSecret))
             .retrieve()
-            .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+            .onStatus(status -> status.is4xxClientError(),
                 clientResponse -> Mono.error(new CustomException(ErrorCode.KAKAO_LOGIN_FAILED)))
+            .onStatus(status -> status.is5xxServerError(),
+                clientResponse -> Mono.error(new CustomException(ErrorCode.KAKAO_SERVICE_UNAVAILABLE)))
             .bodyToMono(KakaoTokenResponse.class)
             .block(); // 외부 연동이므로 결과값을 기다립니다.
 
@@ -77,8 +79,10 @@ public class KakaoOAuthClient {
             .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
             .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_FORM_URLENCODED_VALUE + ";charset=utf-8")
             .retrieve()
-            .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+            .onStatus(status -> status.is4xxClientError(),
                 clientResponse -> Mono.error(new CustomException(ErrorCode.KAKAO_USER_INFO_FAILED)))
+            .onStatus(status -> status.is5xxServerError(),
+                clientResponse -> Mono.error(new CustomException(ErrorCode.KAKAO_SERVICE_UNAVAILABLE)))
             .bodyToMono(KakaoUserInfoResponse.class)
             .block();
 

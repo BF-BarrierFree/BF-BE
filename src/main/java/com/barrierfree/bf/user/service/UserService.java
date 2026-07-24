@@ -1,6 +1,7 @@
 package com.barrierfree.bf.user.service;
 
 import com.barrierfree.bf.global.auth.JwtProvider;
+import com.barrierfree.bf.global.enums.Role;
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.user.dto.OnboardingRequest;
@@ -39,25 +40,30 @@ public class UserService {
         User user = userRepository.findByIdAndIsDeletedFalse(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 닉네임 중복 검증
+        // 2. 온보딩 자격 검증 (GUEST 유저만 온보딩 가능)
+        if (user.getRole() != Role.GUEST) {
+            throw new CustomException(ErrorCode.ONBOARDING_ALREADY_COMPLETED);
+        }
+
+        // 3. 닉네임 중복 검증
         if (userRepository.existsByNickname(request.getNickname())) {
             throw new CustomException(ErrorCode.NICKNAME_DUPLICATED);
         }
 
-        // 3. 약관 동의 처리 (필수 약관 누락 검증 및 매핑 테이블 저장)
+        // 4. 약관 동의 처리 (필수 약관 누락 검증 및 매핑 테이블 저장)
         processTermAgreements(user, request.getAgreedTermIds());
 
-        // 4. 온보딩 정보 업데이트 (닉네임, 다중 선택 항목) 및 권한 승격(GUEST -> USER)
+        // 5. 온보딩 정보 업데이트 (닉네임, 다중 선택 항목) 및 권한 승격(GUEST -> USER)
         user.completeOnboarding(request.getNickname(), request.getMobilities(), request.getFacilities());
 
-        // 5. 권한이 USER로 승격되었으므로 새로운 Access/Refresh JWT 토큰 발급
+        // 6. 권한이 USER로 승격되었으므로 새로운 Access/Refresh JWT 토큰 발급
         String newAccessToken = jwtProvider.generateAccessToken(user);
         String newRefreshToken = jwtProvider.generateRefreshToken(user);
 
         // 새 Refresh Token DB 반영
         user.updateRefreshToken(newRefreshToken);
 
-        // 6. 응답 DTO 반환
+        // 7. 응답 DTO 반환
         return OnboardingResponse.builder()
             .accessToken(newAccessToken)
             .refreshToken(newRefreshToken)
@@ -72,6 +78,19 @@ public class UserService {
     private void processTermAgreements(User user, List<Long> agreedTermIds) {
         // DB에 등록된 활성화된 전체 약관 조회
         List<Term> activeTerms = termRepository.findByIsActiveTrue();
+
+        // 활성화된 약관 ID 목록 추출
+        List<Long> activeTermIds = activeTerms.stream()
+            .map(Term::getId)
+            .collect(Collectors.toList());
+
+        // 유저가 동의한 모든 약관 ID가 활성화된 약관에 존재하는지 검증
+        boolean allAgreedTermsAreValid = agreedTermIds.stream()
+            .allMatch(activeTermIds::contains);
+
+        if (!allAgreedTermsAreValid) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+        }
 
         // 등록된 필수 약관 목록이 유저가 넘긴 agreedTermIds에 모두 포함되어 있는지 확인
         boolean hasAllRequiredTerms = activeTerms.stream()

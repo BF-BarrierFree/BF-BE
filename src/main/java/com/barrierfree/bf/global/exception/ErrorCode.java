@@ -17,6 +17,7 @@ public enum ErrorCode {
     NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "U002", "이미 사용 중인 닉네임입니다."),
     INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "U003", "닉네임 형식이 올바르지 않습니다. (15자 이내)"),
     REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "U004", "필수 약관에 모두 동의해야 합니다."),
+    ONBOARDING_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "U005", "이미 온보딩이 완료된 사용자입니다."),
 
     // --- 무장애 시설 관련 에러 (Facility) ---
     FACILITY_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "해당 시설을 찾을 수 없습니다."),
@@ -36,7 +37,8 @@ public enum ErrorCode {
 
     // Auth & Kakao
     KAKAO_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A001", "카카오 로그인(토큰 발급)에 실패했습니다."),
-    KAKAO_USER_INFO_FAILED(HttpStatus.UNAUTHORIZED, "A002", "카카오 유저 정보 조회에 실패했습니다.");
+    KAKAO_USER_INFO_FAILED(HttpStatus.UNAUTHORIZED, "A002", "카카오 유저 정보 조회에 실패했습니다."),
+    KAKAO_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "A003", "카카오 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.");
 
     private final HttpStatus status; // HTTP 상태 코드
     private final String code; // 서비스 고유 에러 코드

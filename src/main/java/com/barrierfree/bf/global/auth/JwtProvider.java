@@ -50,6 +50,7 @@ public class JwtProvider {
         return Jwts.builder()
             .subject(String.valueOf(user.getId())) // 토큰 식별자로 유저 PK 사용
             .claim("role", user.getRole().getKey()) // 권한 정보 추가 (GUEST or USER)
+            .claim("token_type", "access") // 토큰 타입 명시
             .issuedAt(now)
             .expiration(expiryDate)
             .signWith(secretKey)
@@ -66,6 +67,7 @@ public class JwtProvider {
 
         return Jwts.builder()
             .subject(String.valueOf(user.getId()))
+            .claim("token_type", "refresh") // 토큰 타입 명시
             .issuedAt(now)
             .expiration(expiryDate)
             .signWith(secretKey)
@@ -88,6 +90,48 @@ public class JwtProvider {
     }
 
     /**
+     * Access Token 전용 검증 메서드 - token_type이 "access"인지 확인합니다.
+     */
+    public boolean validateAccessToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+            String tokenType = claims.get("token_type", String.class);
+            return "access".equals(tokenType);
+        } catch (ExpiredJwtException e) {
+            log.warn("만료된 Access Token입니다.");
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("유효하지 않은 Access Token입니다. ({})", e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Refresh Token 전용 검증 메서드 - token_type이 "refresh"인지 확인합니다.
+     */
+    public boolean validateRefreshToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+            String tokenType = claims.get("token_type", String.class);
+            return "refresh".equals(tokenType);
+        } catch (ExpiredJwtException e) {
+            log.warn("만료된 Refresh Token입니다.");
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("유효하지 않은 Refresh Token입니다. ({})", e.getMessage());
+        }
+        return false;
+    }
+
+    /**
      * 검증된 토큰에서 유저 PK(ID)를 추출합니다.
      */
     public Long getUserIdFromToken(String token) {
@@ -96,7 +140,20 @@ public class JwtProvider {
             .build()
             .parseSignedClaims(token)
             .getPayload();
-        
+
         return Long.parseLong(claims.getSubject());
+    }
+
+    /**
+     * 검증된 토큰에서 Role(권한) 정보를 추출합니다.
+     */
+    public String getRoleFromToken(String token) {
+        Claims claims = Jwts.parser()
+            .verifyWith(secretKey)
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
+
+        return claims.get("role", String.class);
     }
 }

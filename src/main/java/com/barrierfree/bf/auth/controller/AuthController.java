@@ -29,8 +29,8 @@ public class AuthController {
      */
     @PostMapping("/kakao/login")
     public ApiResponse<AuthResponse> kakaoLogin(@Valid @RequestBody KakaoLoginRequest request) {
-        log.info("카카오 로그인 요청 - Authorization Code: {}", request.code());
-        
+        log.info("카카오 로그인 요청 수신");
+
         AuthResponse response = authService.kakaoLogin(request.code());
         
         // 프로젝트 컨벤션에 따른 일관된 응답 객체 반환
