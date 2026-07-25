@@ -14,13 +14,19 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import com.barrierfree.bf.global.auth.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
   @Value("${cors.allowed-origins}")
   private List<String> allowedOrigins;
+
+  private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
   // 비밀번호 암호화를 위한 필수 빈 (추후 로그인 구현 시 사용)
   @Bean
@@ -69,6 +75,7 @@ public class SecurityConfig {
                     .requestMatchers(
                         "/",
                         "/api/health",
+                        "/api/v1/auth/**",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/api/v1/places/**",
@@ -80,7 +87,8 @@ public class SecurityConfig {
                     .anyRequest()
                     .authenticated());
 
-    // 추후 JWT 개발 시 여기에 필터(.addFilterBefore)가 추가됩니다.
+    // SecurityFilterChain에 JWT 필터를 UsernamePasswordAuthenticationFilter 전에 끼워 넣음.
+    http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
   }
