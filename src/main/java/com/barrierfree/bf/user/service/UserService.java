@@ -6,6 +6,7 @@ import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.user.dto.OnboardingRequest;
 import com.barrierfree.bf.user.dto.OnboardingResponse;
+import com.barrierfree.bf.user.dto.UserPreferenceResponse;
 import com.barrierfree.bf.user.entity.Term;
 import com.barrierfree.bf.user.entity.User;
 import com.barrierfree.bf.user.entity.UserTermAgreement;
@@ -70,6 +71,19 @@ public class UserService {
             .nickname(user.getNickname())
             .role(user.getRole())
             .build();
+    }
+
+    @Transactional(readOnly = true)
+    public UserPreferenceResponse getPreferences(Long userId) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return new UserPreferenceResponse(
+            user.getId(),
+            user.getNickname(),
+            user.getRole(),
+            user.getMobilities(),
+            user.getFacilities());
     }
 
     /**
