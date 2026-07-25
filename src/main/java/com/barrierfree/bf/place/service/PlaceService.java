@@ -2,8 +2,8 @@ package com.barrierfree.bf.place.service;
 
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
-import com.barrierfree.bf.place.domain.AccessibilityFacility;
-import com.barrierfree.bf.place.domain.AccessibilityUserType;
+import com.barrierfree.bf.global.enums.FacilityType;
+import com.barrierfree.bf.global.enums.MobilityType;
 import com.barrierfree.bf.place.domain.PlaceCategory;
 import com.barrierfree.bf.place.dto.GoogleAutocompleteResponseDto;
 import com.barrierfree.bf.place.dto.GooglePlaceResponseDto;
@@ -200,8 +200,8 @@ public class PlaceService {
       Integer radius,
       Integer pageSize,
       String pageToken,
-      List<AccessibilityUserType> userTypes,
-      List<AccessibilityFacility> facilities) {
+      List<MobilityType> userTypes,
+      List<FacilityType> facilities) {
     validateKeyword(keyword);
     PlaceCategory category = PlaceCategory.from(categoryValue);
     int normalizedPageSize = normalizePageSize(pageSize);
@@ -486,7 +486,7 @@ public class PlaceService {
   }
 
   private boolean hasAccessibilityFilter(
-      List<AccessibilityUserType> userTypes, List<AccessibilityFacility> facilities) {
+      List<MobilityType> userTypes, List<FacilityType> facilities) {
     return (userTypes != null && !userTypes.isEmpty())
         || (facilities != null && !facilities.isEmpty());
   }
@@ -519,18 +519,18 @@ public class PlaceService {
   }
 
   private boolean matchesUserTypes(
-      PlaceSearchResponse.PlaceSummary place, List<AccessibilityUserType> userTypes) {
+      PlaceSearchResponse.PlaceSummary place, List<MobilityType> userTypes) {
     if (userTypes == null || userTypes.isEmpty()) {
       return true;
     }
 
-    for (AccessibilityUserType userType : userTypes) {
+    for (MobilityType userType : userTypes) {
       if (userType == null) {
         continue;
       }
       boolean matched =
           switch (userType) {
-            case WHEELCHAIR_USER ->
+            case WHEELCHAIR ->
                 Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
                     || Boolean.TRUE.equals(place.wheelchairAccessibleParking())
                     || Boolean.TRUE.equals(place.wheelchairAccessibleRestroom())
@@ -541,19 +541,20 @@ public class PlaceService {
                 Boolean.TRUE.equals(place.strollerRental())
                     || Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
                     || Boolean.TRUE.equals(place.elevator());
-            case COGNITIVE_DEVELOPMENTAL_DISABILITY ->
+            case COGNITIVE_DEVELOPMENTAL ->
                 Boolean.TRUE.equals(place.restArea())
                     || Boolean.TRUE.equals(place.nursingRoom())
                     || Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
                     || Boolean.TRUE.equals(place.wheelchairAccessibleRestroom())
                     || Boolean.TRUE.equals(place.elevator());
-            case VISUAL_IMPAIRED ->
+            case VISUAL_IMPAIRMENT ->
                 Boolean.TRUE.equals(place.voiceGuidance())
                     || Boolean.TRUE.equals(place.brailleBlock());
-            case HEARING_IMPAIRED ->
+            case HEARING_IMPAIRMENT ->
                 Boolean.TRUE.equals(place.signLanguage())
                     || Boolean.TRUE.equals(place.subtitleService())
                     || Boolean.TRUE.equals(place.hearingSupport());
+            case OTHER -> false;
           };
       if (matched) {
         return true;
@@ -563,12 +564,12 @@ public class PlaceService {
   }
 
   private boolean matchesFacilities(
-      PlaceSearchResponse.PlaceSummary place, List<AccessibilityFacility> facilities) {
+      PlaceSearchResponse.PlaceSummary place, List<FacilityType> facilities) {
     if (facilities == null || facilities.isEmpty()) {
       return true;
     }
 
-    for (AccessibilityFacility facility : facilities) {
+    for (FacilityType facility : facilities) {
       if (facility == null) {
         continue;
       }
@@ -581,11 +582,12 @@ public class PlaceService {
             case RAMP -> Boolean.TRUE.equals(place.ramp());
             case VOICE_GUIDANCE -> Boolean.TRUE.equals(place.voiceGuidance());
             case BRAILLE_BLOCK -> Boolean.TRUE.equals(place.brailleBlock());
-            case WHEELCHAIR_RENTAL -> Boolean.TRUE.equals(place.wheelchairRental());
-            case SIGN_LANGUAGE -> Boolean.TRUE.equals(place.signLanguage());
+            case ELECTRIC_WHEELCHAIR_RENTAL -> Boolean.TRUE.equals(place.wheelchairRental());
+            case SIGN_LANGUAGE_INTERPRETATION -> Boolean.TRUE.equals(place.signLanguage());
             case REST_AREA -> Boolean.TRUE.equals(place.restArea());
             case NURSING_ROOM -> Boolean.TRUE.equals(place.nursingRoom());
             case SUBTITLE_SERVICE -> Boolean.TRUE.equals(place.subtitleService());
+            case NONE -> false;
           };
       if (matched) {
         return true;

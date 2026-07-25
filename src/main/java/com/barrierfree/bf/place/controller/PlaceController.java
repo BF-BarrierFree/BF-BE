@@ -1,8 +1,8 @@
 package com.barrierfree.bf.place.controller;
 
 import com.barrierfree.bf.global.response.ApiResponse;
-import com.barrierfree.bf.place.domain.AccessibilityFacility;
-import com.barrierfree.bf.place.domain.AccessibilityUserType;
+import com.barrierfree.bf.global.enums.FacilityType;
+import com.barrierfree.bf.global.enums.MobilityType;
 import com.barrierfree.bf.place.dto.PlaceAutocompleteResponse;
 import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchHistoryResponse;
@@ -102,8 +102,8 @@ public class PlaceController {
           @RequestParam(required = false)
           String facilities) {
     String searchKeyword = keyword != null ? keyword : query;
-    List<AccessibilityUserType> parsedUserTypes = parseUserTypes(userTypes);
-    List<AccessibilityFacility> parsedFacilities = parseFacilities(facilities);
+    List<MobilityType> parsedUserTypes = parseUserTypes(userTypes);
+    List<FacilityType> parsedFacilities = parseFacilities(facilities);
     PlaceSearchResponse response =
         placeService.search(
             searchKeyword,
@@ -138,17 +138,17 @@ public class PlaceController {
     return ApiResponse.success(response, "최근 장소 검색 기록 조회 성공");
   }
 
-  private List<AccessibilityUserType> parseUserTypes(String rawValues) {
+  private List<MobilityType> parseUserTypes(String rawValues) {
     return parseDelimitedValues(rawValues).stream()
-        .map(AccessibilityUserType::from)
+        .map(MobilityType::from)
         .filter(value -> value != null)
         .distinct()
         .toList();
   }
 
-  private List<AccessibilityFacility> parseFacilities(String rawValues) {
+  private List<FacilityType> parseFacilities(String rawValues) {
     return parseDelimitedValues(rawValues).stream()
-        .map(AccessibilityFacility::from)
+        .map(FacilityType::from)
         .filter(value -> value != null)
         .distinct()
         .toList();
