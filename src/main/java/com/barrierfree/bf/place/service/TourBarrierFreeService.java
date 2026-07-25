@@ -81,6 +81,39 @@ public class TourBarrierFreeService {
     }
   }
 
+  public PublicBarrierFreePlace findByContentId(String contentId) {
+    if (contentId == null || contentId.isBlank()) {
+      return null;
+    }
+
+    try {
+      JsonNode commonDetail = fetchCommonDetail(contentId);
+      JsonNode commonItem = firstItem(commonDetail);
+      JsonNode barrierFreeDetail = fetchBarrierFreeDetail(contentId);
+      JsonNode barrierItem = barrierFreeDetail == null || barrierFreeDetail.isMissingNode()
+          ? null
+          : barrierFreeDetail;
+
+      if (commonItem == null && barrierItem == null) {
+        return null;
+      }
+
+      PublicBarrierFreeInfo barrierFreeInfo =
+          barrierItem == null ? PublicBarrierFreeInfo.notFound() : toBarrierFreeInfo(barrierItem);
+
+      return new PublicBarrierFreePlace(
+          contentId,
+          commonItem == null ? contentId : text(commonItem, "title"),
+          commonItem == null ? null : address(commonItem),
+          commonItem == null ? null : doubleValue(commonItem, "mapy"),
+          commonItem == null ? null : doubleValue(commonItem, "mapx"),
+          barrierFreeInfo);
+    } catch (RuntimeException e) {
+      log.warn("TourAPI barrier-free detail lookup failed. contentId={}", contentId, e);
+      return null;
+    }
+  }
+
   private String findContentId(String placeName) {
     JsonNode response = fetchKeywordSearch(placeName, 10);
     JsonNode item = bestMatchedItem(response, placeName);
@@ -126,6 +159,24 @@ public class TourBarrierFreeService {
             .block();
 
     return firstItem(response);
+  }
+
+  private JsonNode fetchCommonDetail(String contentId) {
+    return webClient
+        .get()
+        .uri(
+            UriComponentsBuilder.fromUriString(baseUrl + "/detailCommon2")
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("MobileOS", MOBILE_OS)
+                .queryParam("MobileApp", MOBILE_APP)
+                .queryParam("_type", "json")
+                .queryParam("contentId", contentId)
+                .build()
+                .encode()
+                .toUri())
+        .retrieve()
+        .bodyToMono(JsonNode.class)
+        .block();
   }
 
   private void addPublicPlaceIfAvailable(
