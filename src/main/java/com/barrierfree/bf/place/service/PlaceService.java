@@ -206,6 +206,7 @@ public class PlaceService {
     PlaceCategory category = PlaceCategory.from(categoryValue);
     int normalizedPageSize = normalizePageSize(pageSize);
     boolean accessibilityFilterRequested = hasAccessibilityFilter(userTypes, facilities);
+    Map<String, PublicBarrierFreeInfo> publicInfoCache = new HashMap<>();
 
     Map<String, Object> requestBody = new HashMap<>();
     requestBody.put("textQuery", keyword);
@@ -237,12 +238,7 @@ public class PlaceService {
 
         for (PlaceSearchResponse.PlaceSummary summary :
             searchPublicExactCandidate(
-                candidateQuery,
-                category,
-                lat,
-                lng,
-                radius,
-                accessibilityFilterRequested)) {
+                candidateQuery, category, lat, lng, radius, accessibilityFilterRequested)) {
           if (candidatePlaces.size() >= normalizedPageSize) {
             break;
           }
@@ -255,9 +251,15 @@ public class PlaceService {
         }
 
         if (candidatePlaces.isEmpty()) {
-          for (PlaceSearchResponse.PlaceSummary summary :
+        for (PlaceSearchResponse.PlaceSummary summary :
               searchGoogleExactCandidate(
-                  candidateQuery, category, lat, lng, radius, accessibilityFilterRequested)) {
+                  candidateQuery,
+                  category,
+                  lat,
+                  lng,
+                  radius,
+                  accessibilityFilterRequested,
+                  publicInfoCache)) {
             if (candidatePlaces.size() >= normalizedPageSize) {
               break;
             }
@@ -293,7 +295,7 @@ public class PlaceService {
         if (googleResponse != null && googleResponse.getPlaces() != null) {
           List<PlaceSearchResponse.PlaceSummary> pagePlaces =
               googleResponse.getPlaces().stream()
-                  .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested))
+                  .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache))
                   .filter(place -> isWithinSearchArea(place, lat, lng, radius))
                   .toList();
 
@@ -444,7 +446,8 @@ public class PlaceService {
       Double lat,
       Double lng,
       Integer radius,
-      boolean accessibilityFilterRequested) {
+      boolean accessibilityFilterRequested,
+      Map<String, PublicBarrierFreeInfo> publicInfoCache) {
     Map<String, Object> candidateRequestBody = new HashMap<>();
     candidateRequestBody.put("textQuery", candidateQuery);
     candidateRequestBody.put("languageCode", "ko");
@@ -462,7 +465,7 @@ public class PlaceService {
     }
 
     return googleResponse.getPlaces().stream()
-        .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested))
+        .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache))
         .toList();
   }
 
@@ -618,11 +621,12 @@ public class PlaceService {
   private PlaceSearchResponse.PlaceSummary toPlaceSummary(
       GooglePlaceResponseDto.Place place,
       PlaceCategory category,
-      boolean accessibilityFilterRequested) {
+      boolean accessibilityFilterRequested,
+      Map<String, PublicBarrierFreeInfo> publicInfoCache) {
     GooglePlaceResponseDto.Location location = place.getLocation();
     GooglePlaceResponseDto.AccessibilityOptions accessibility = place.getAccessibilityOptions();
     String name = place.getDisplayName() == null ? null : place.getDisplayName().getText();
-    PublicBarrierFreeInfo publicInfo = tourBarrierFreeService.findByPlaceName(name);
+    PublicBarrierFreeInfo publicInfo = getPublicInfo(name, publicInfoCache);
 
     return new PlaceSearchResponse.PlaceSummary(
         place.getId(),
@@ -687,6 +691,15 @@ public class PlaceService {
         publicInfo.restArea(),
         publicInfo.subtitleService(),
         resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested));
+  }
+
+  private PublicBarrierFreeInfo getPublicInfo(
+      String name, Map<String, PublicBarrierFreeInfo> publicInfoCache) {
+    String cacheKey = normalize(name);
+    if (cacheKey.isBlank()) {
+      return PublicBarrierFreeInfo.empty();
+    }
+    return publicInfoCache.computeIfAbsent(cacheKey, key -> tourBarrierFreeService.findByPlaceName(name));
   }
 
   private String resolveAccessibilityDataSource(

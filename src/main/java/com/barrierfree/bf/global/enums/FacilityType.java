@@ -1,5 +1,7 @@
 package com.barrierfree.bf.global.enums;
 
+import com.barrierfree.bf.global.exception.CustomException;
+import com.barrierfree.bf.global.exception.ErrorCode;
 import java.util.Arrays;
 import java.util.Locale;
 import lombok.Getter;
@@ -37,6 +39,6 @@ public enum FacilityType {
                     || type.description.equals(value.trim())
                     || type.description.equalsIgnoreCase(value.trim()))
         .findFirst()
-        .orElseThrow();
+        .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
   }
 }

@@ -4,6 +4,11 @@ import com.barrierfree.bf.place.dto.PublicBarrierFreeInfo;
 import com.barrierfree.bf.place.dto.PublicBarrierFreePlace;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,16 +69,60 @@ public class TourBarrierFreeService {
       }
 
       List<PublicBarrierFreePlace> places = new ArrayList<>();
+      List<JsonNode> candidates = new ArrayList<>();
       if (items.isArray()) {
-        for (JsonNode item : items) {
-          addPublicPlaceIfAvailable(places, item, limit);
-          if (places.size() >= limit) {
+        items.forEach(candidates::add);
+      } else {
+        candidates.add(items);
+      }
+
+      int parallelism = Math.max(1, Math.min(4, limit));
+      ExecutorService executor = Executors.newFixedThreadPool(parallelism);
+      CompletionService<PublicBarrierFreePlace> completionService =
+          new java.util.concurrent.ExecutorCompletionService<>(executor);
+
+      List<Future<PublicBarrierFreePlace>> submittedTasks = new ArrayList<>();
+      int inFlight = 0;
+      int candidateIndex = 0;
+      try {
+        while (inFlight < parallelism && candidateIndex < candidates.size()) {
+          JsonNode candidate = candidates.get(candidateIndex++);
+          submittedTasks.add(completionService.submit(() -> addPublicPlaceIfAvailable(candidate)));
+          inFlight++;
+        }
+
+        while (inFlight > 0 && places.size() < limit) {
+          try {
+            Future<PublicBarrierFreePlace> completed = completionService.take();
+            inFlight--;
+
+            PublicBarrierFreePlace place = completed.get();
+            if (place != null) {
+              places.add(place);
+              if (places.size() >= limit) {
+                break;
+              }
+            }
+          } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             break;
+          } catch (ExecutionException e) {
+            log.debug("TourAPI barrier-free candidate lookup failed", e.getCause());
+          }
+
+          while (inFlight < parallelism && candidateIndex < candidates.size() && places.size() < limit) {
+            JsonNode candidate = candidates.get(candidateIndex++);
+            submittedTasks.add(completionService.submit(() -> addPublicPlaceIfAvailable(candidate)));
+            inFlight++;
           }
         }
-      } else {
-        addPublicPlaceIfAvailable(places, items, limit);
+      } finally {
+        if (places.size() >= limit) {
+          submittedTasks.forEach(future -> future.cancel(true));
+        }
+        executor.shutdownNow();
       }
+
       return places;
     } catch (RuntimeException e) {
       log.warn("TourAPI barrier-free keyword search failed. keyword={}", keyword, e);
@@ -179,35 +228,29 @@ public class TourBarrierFreeService {
         .block();
   }
 
-  private void addPublicPlaceIfAvailable(
-      List<PublicBarrierFreePlace> places, JsonNode item, int limit) {
-    if (places.size() >= limit) {
-      return;
-    }
-
+  private PublicBarrierFreePlace addPublicPlaceIfAvailable(JsonNode item) {
     String contentId = text(item, "contentid");
     if (contentId == null || contentId.isBlank()) {
-      return;
+      return null;
     }
 
     JsonNode detail = fetchBarrierFreeDetail(contentId);
     if (detail == null || detail.isMissingNode()) {
-      return;
+      return null;
     }
 
     PublicBarrierFreeInfo barrierFreeInfo = toBarrierFreeInfo(detail);
     if (!barrierFreeInfo.hasAnyValue()) {
-      return;
+      return null;
     }
 
-    places.add(
-        new PublicBarrierFreePlace(
-            contentId,
-            text(item, "title"),
-            address(item),
-            doubleValue(item, "mapy"),
-            doubleValue(item, "mapx"),
-            barrierFreeInfo));
+    return new PublicBarrierFreePlace(
+        contentId,
+        text(item, "title"),
+        address(item),
+        doubleValue(item, "mapy"),
+        doubleValue(item, "mapx"),
+        barrierFreeInfo);
   }
 
   private PublicBarrierFreeInfo toBarrierFreeInfo(JsonNode item) {

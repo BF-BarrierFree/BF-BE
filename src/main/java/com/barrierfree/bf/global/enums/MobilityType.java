@@ -30,6 +30,6 @@ public enum MobilityType {
                     || type.description.equals(value.trim())
                     || type.description.equalsIgnoreCase(value.trim()))
         .findFirst()
-        .orElseThrow();
+        .orElse(null);
   }
 }
