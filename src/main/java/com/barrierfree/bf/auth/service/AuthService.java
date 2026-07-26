@@ -5,6 +5,8 @@ import com.barrierfree.bf.auth.dto.AuthResponse;
 import com.barrierfree.bf.auth.dto.KakaoUserInfoResponse;
 import com.barrierfree.bf.global.auth.JwtProvider;
 import com.barrierfree.bf.global.enums.Role;
+import com.barrierfree.bf.global.exception.CustomException;
+import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.user.entity.User;
 import com.barrierfree.bf.user.repository.UserRepository;
 import java.util.Optional;
@@ -83,5 +85,17 @@ public class AuthService {
             .build();
 
         return userRepository.save(newUser);
+    }
+
+    /**
+     * 로그아웃 처리: DB에 저장된 Refresh Token을 제거합니다.
+     * (클라이언트 측에서는 로컬 스토리지 등에 있는 토큰을 비워야 합니다.)
+     */
+    @Transactional
+    public void logout(Long userId) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        user.clearRefreshToken();
     }
 }

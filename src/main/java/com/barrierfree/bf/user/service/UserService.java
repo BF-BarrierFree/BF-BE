@@ -6,6 +6,8 @@ import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.user.dto.OnboardingRequest;
 import com.barrierfree.bf.user.dto.OnboardingResponse;
+import com.barrierfree.bf.user.dto.UserProfileResponse;
+import com.barrierfree.bf.user.dto.UserUpdateRequest;
 import com.barrierfree.bf.user.entity.Term;
 import com.barrierfree.bf.user.entity.User;
 import com.barrierfree.bf.user.entity.UserTermAgreement;
@@ -112,5 +114,53 @@ public class UserService {
             .collect(Collectors.toList());
 
         userTermAgreementRepository.saveAll(agreements);
+    }
+
+    /**
+     * 내 프로필 정보(마이페이지)를 조회합니다.
+     */
+    @Transactional(readOnly = true)
+    public UserProfileResponse getMyProfile(Long userId) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return UserProfileResponse.builder()
+            .nickname(user.getNickname())
+            .profileImageUrl(user.getProfileImageUrl())
+            .role(user.getRole())
+            .mobilities(user.getMobilities())
+            .facilities(user.getFacilities())
+            .build();
+    }
+
+    /**
+     * 내 프로필 정보(닉네임, 다중 선택 항목)를 수정합니다.
+     */
+    @Transactional
+    public void updateMyProfile(Long userId, UserUpdateRequest request) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 기존 닉네임과 다를 경우에만 중복 검사 수행
+        if (!user.getNickname().equals(request.getNickname()) &&
+            userRepository.existsByNickname(request.getNickname())) {
+            throw new CustomException(ErrorCode.NICKNAME_DUPLICATED);
+        }
+
+        user.updateProfile(request.getNickname(), request.getMobilities(), request.getFacilities());
+    }
+
+    /**
+     * 회원 탈퇴 처리를 수행합니다. (Soft Delete 및 개인정보 마스킹)
+     */
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 탈퇴한 유저의 닉네임을 "삭제된사용자_UUID" 형태로 마스킹하여 다른 유저가 해당 닉네임을 사용할 수 있도록 함
+        String maskedNickname = "탈퇴유저_" + java.util.UUID.randomUUID().toString().substring(0, 8);
+
+        user.softDelete(maskedNickname, null);
     }
 }

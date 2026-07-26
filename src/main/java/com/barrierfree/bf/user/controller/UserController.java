@@ -3,6 +3,8 @@ package com.barrierfree.bf.user.controller;
 import com.barrierfree.bf.global.response.ApiResponse;
 import com.barrierfree.bf.user.dto.OnboardingRequest;
 import com.barrierfree.bf.user.dto.OnboardingResponse;
+import com.barrierfree.bf.user.dto.UserProfileResponse;
+import com.barrierfree.bf.user.dto.UserUpdateRequest;
 import com.barrierfree.bf.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -10,10 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 사용자 관련 API 엔드포인트를 처리하는 컨트롤러
@@ -44,5 +43,33 @@ public class UserController {
 
         // 프론트엔드에서 띄워줄 알림창을 고려하여 친절한 메시지와 함께 반환
         return ApiResponse.success(response, "온보딩이 성공적으로 완료되었습니다.");
+    }
+
+    @Operation(summary = "내 프로필 조회", description = "현재 로그인한 유저의 프로필 정보를 조회합니다.")
+    @GetMapping("/me")
+    public ApiResponse<UserProfileResponse> getMyProfile(
+        @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        UserProfileResponse response = userService.getMyProfile(userId);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "내 프로필 수정", description = "닉네임, 이동 수단, 필요 시설 정보를 수정합니다.")
+    @PatchMapping("/me")
+    public ApiResponse<?> updateMyProfile(
+        @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+        @Valid @RequestBody UserUpdateRequest request
+    ) {
+        userService.updateMyProfile(userId, request);
+        return ApiResponse.successWithNoContent();
+    }
+
+    @Operation(summary = "회원 탈퇴", description = "회원 탈퇴를 진행합니다. (개인정보는 마스킹 처리됩니다.)")
+    @DeleteMapping("/me")
+    public ApiResponse<?> withdraw(
+        @Parameter(hidden = true) @AuthenticationPrincipal Long userId
+    ) {
+        userService.withdraw(userId);
+        return ApiResponse.success(null, "회원 탈퇴가 완료되었습니다.");
     }
 }
