@@ -172,7 +172,7 @@ public class UserService {
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         // 탈퇴한 유저의 닉네임을 "삭제된사용자_UUID" 형태로 마스킹하여 다른 유저가 해당 닉네임을 사용할 수 있도록 함
-        String maskedNickname = "탈퇴유저_" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String maskedNickname = "탈퇴유저_" + java.util.UUID.randomUUID().toString();
 
         user.softDelete(maskedNickname, null);
     }
