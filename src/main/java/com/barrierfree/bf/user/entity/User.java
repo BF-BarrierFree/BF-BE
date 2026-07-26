@@ -102,6 +102,22 @@ public class User extends BaseEntity {
     }
 
     /**
+     * 유저 프로필 정보(닉네임, 이동 수단, 필요 시설)를 수정합니다.
+     */
+    public void updateProfile(String nickname, List<MobilityType> mobilities, List<FacilityType> facilities) {
+        this.nickname = nickname;
+        this.mobilities = mobilities != null ? mobilities : new ArrayList<>();
+        this.facilities = facilities != null ? facilities : new ArrayList<>();
+    }
+
+    /**
+     * 로그아웃 시 Refresh Token을 삭제합니다.
+     */
+    public void clearRefreshToken() {
+        this.refreshToken = null;
+    }
+
+    /**
      * 회원 탈퇴 시 호출되는 Soft Delete 메서드입니다.
      * 개인정보 보호를 위해 닉네임과 프로필 사진을 마스킹/초기화합니다.
      *

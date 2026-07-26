@@ -71,6 +71,9 @@ public class SecurityConfig {
                     // OPTIONS 요청(Preflight) 항상 허용 (가장 중요)
                     .requestMatchers(HttpMethod.OPTIONS, "/**")
                     .permitAll()
+                    // 로그아웃은 인증 필요 (더 구체적인 규칙이므로 /api/v1/auth/** 보다 먼저 배치)
+                    .requestMatchers("/api/v1/auth/logout")
+                    .authenticated()
                     // 헬스체크 및 추후 오픈할 경로는 인증 없이 접근 허용
                     .requestMatchers(
                         "/",
@@ -80,6 +83,7 @@ public class SecurityConfig {
                         "/v3/api-docs/**",
                         "/api/v1/places/**",
                         "/api/v1/test/places/**",
+                        "/login/**",
                         "/api/v1/routes/**" // 로그인 없어도 가능한 기능이라 열어둠.
                         )
                     .permitAll()

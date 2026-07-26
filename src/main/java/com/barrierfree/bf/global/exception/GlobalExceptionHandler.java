@@ -2,6 +2,7 @@ package com.barrierfree.bf.global.exception;
 
 import com.barrierfree.bf.global.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,6 +37,28 @@ public class GlobalExceptionHandler {
 
     return ResponseEntity.status(errorCode.getStatus())
         .body(ApiResponse.error(errorCode.getCode(), errorMessage));
+  }
+
+  /**
+   * 데이터베이스 제약 조건 위반 시 처리 (unique constraint 등)
+   * 닉네임 중복 등 트랜잭션 커밋 시점에 발생하는 제약 조건 위반을 처리합니다.
+   */
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  protected ResponseEntity<ApiResponse<?>> handleDataIntegrityViolationException(
+      DataIntegrityViolationException e) {
+    log.error("DataIntegrityViolationException: {}", e.getMessage());
+
+    // 닉네임 unique constraint 위반인 경우 NICKNAME_DUPLICATED 반환
+    if (e.getMessage() != null && e.getMessage().contains("nickname")) {
+      ErrorCode errorCode = ErrorCode.NICKNAME_DUPLICATED;
+      return ResponseEntity.status(errorCode.getStatus())
+          .body(ApiResponse.error(errorCode.getCode(), errorCode.getMessage()));
+    }
+
+    // 그 외 데이터 무결성 위반은 일반 에러로 처리
+    ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
+    return ResponseEntity.status(errorCode.getStatus())
+        .body(ApiResponse.error(errorCode.getCode(), errorCode.getMessage()));
   }
 
   /** 그 외 예상치 못한 모든 에러 (NullPointerException 등) */

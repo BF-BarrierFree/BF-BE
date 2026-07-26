@@ -7,6 +7,8 @@ import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.user.dto.OnboardingRequest;
 import com.barrierfree.bf.user.dto.OnboardingResponse;
 import com.barrierfree.bf.user.dto.UserPreferenceResponse;
+import com.barrierfree.bf.user.dto.UserProfileResponse;
+import com.barrierfree.bf.user.dto.UserUpdateRequest;
 import com.barrierfree.bf.user.entity.Term;
 import com.barrierfree.bf.user.entity.User;
 import com.barrierfree.bf.user.entity.UserTermAgreement;
@@ -30,10 +32,6 @@ public class UserService {
 
     /**
      * GUEST 유저의 온보딩(추가 정보 입력 및 약관 동의)을 처리하고 USER 권한으로 승격합니다.
-     *
-     * @param userId  인증된 현재 유저의 PK
-     * @param request 프론트엔드에서 전달한 온보딩 입력 폼 데이터
-     * @return 새로운 토큰과 승격된 권한 정보가 담긴 응답 DTO
      */
     @Transactional
     public OnboardingResponse onboarding(Long userId, OnboardingRequest request) {
@@ -43,7 +41,7 @@ public class UserService {
 
         // 2. 온보딩 자격 검증 (GUEST 유저만 온보딩 가능)
         if (user.getRole() != Role.GUEST) {
-            throw new CustomException(ErrorCode.ONBOARDING_ALREADY_COMPLETED);
+            throw new CustomException(ErrorCode.ONBOARDING_ALREADY_COMPLETED); // 이 부분 ErrorCode에 추가되어 있어야 함
         }
 
         // 3. 닉네임 중복 검증
@@ -71,19 +69,6 @@ public class UserService {
             .nickname(user.getNickname())
             .role(user.getRole())
             .build();
-    }
-
-    @Transactional(readOnly = true)
-    public UserPreferenceResponse getPreferences(Long userId) {
-        User user = userRepository.findByIdAndIsDeletedFalse(userId)
-            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        return new UserPreferenceResponse(
-            user.getId(),
-            user.getNickname(),
-            user.getRole(),
-            user.getMobilities(),
-            user.getFacilities());
     }
 
     /**
@@ -126,5 +111,69 @@ public class UserService {
             .collect(Collectors.toList());
 
         userTermAgreementRepository.saveAll(agreements);
+    }
+
+    /**
+     * 내 프로필 정보(마이페이지)를 조회합니다.
+     */
+    @Transactional(readOnly = true)
+    public UserProfileResponse getMyProfile(Long userId) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return UserProfileResponse.builder()
+            .nickname(user.getNickname())
+            .profileImageUrl(user.getProfileImageUrl())
+            .role(user.getRole())
+            .mobilities(user.getMobilities())
+            .facilities(user.getFacilities())
+            .build();
+    }
+
+    /**
+     * 내 프로필 정보(닉네임, 다중 선택 항목)를 수정합니다.
+     */
+    @Transactional
+    public void updateMyProfile(Long userId, UserUpdateRequest request) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 기존 닉네임과 다를 경우에만 중복 검사 수행
+        if (!user.getNickname().equals(request.getNickname()) &&
+            userRepository.existsByNickname(request.getNickname())) {
+            throw new CustomException(ErrorCode.NICKNAME_DUPLICATED);
+        }
+
+        user.updateProfile(request.getNickname(), request.getMobilities(), request.getFacilities());
+    }
+
+    /**
+     * 내 선호 필터 정보(온보딩 결과)를 조회합니다.
+     */
+    @Transactional(readOnly = true)
+    public UserPreferenceResponse getPreferences(Long userId) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return new UserPreferenceResponse(
+            user.getId(),
+            user.getNickname(),
+            user.getRole(),
+            user.getMobilities(),
+            user.getFacilities());
+    }
+
+    /**
+     * 회원 탈퇴 처리를 수행합니다. (Soft Delete 및 개인정보 마스킹)
+     */
+    @Transactional
+    public void withdraw(Long userId) {
+        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // 탈퇴한 유저의 닉네임을 "삭제된사용자_UUID" 형태로 마스킹하여 다른 유저가 해당 닉네임을 사용할 수 있도록 함
+        String maskedNickname = "탈퇴유저_" + java.util.UUID.randomUUID().toString();
+
+        user.softDelete(maskedNickname, null);
     }
 }
