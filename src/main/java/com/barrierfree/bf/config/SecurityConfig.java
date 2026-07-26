@@ -78,6 +78,7 @@ public class SecurityConfig {
                         "/api/v1/auth/**",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
+                        "/api/v1/places/**",
                         "/api/v1/test/places/**",
                         "login/**",
                         "/api/v1/routes/**" // 로그인 없어도 가능한 기능이라 열어둠.
