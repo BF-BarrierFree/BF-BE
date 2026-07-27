@@ -2,6 +2,11 @@ package com.barrierfree.bf.route.service;
 
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
+import com.barrierfree.bf.route.dto.TransitRouteResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +20,9 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class OdsayRouteService {
 
-  private final WebClient webClient; // 일반 WebClient 사용 (Config에서 만든 기본 Bean)
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+  private final WebClient webClient;
 
   @Value("${odsay.api.base-url}")
   private String baseUrl;
@@ -23,14 +30,26 @@ public class OdsayRouteService {
   @Value("${odsay.api.api-key}")
   private String apiKey;
 
-  /** [테스트용] 공공데이터포털(ODsay) 연동 테스트: 대중교통 길찾기 응답 구조(경유하는 정류장, 위경도 등)를 눈으로 확인하기 위해 String으로 반환합니다. */
+  public TransitRouteResponse getTransitRoute(
+      double startLng, double startLat, double endLng, double endLat) {
+    String rawResponse = requestTransitRoute(startLng, startLat, endLng, endLat);
+    return parseTransitRoute(rawResponse);
+  }
+
   public String testOdsayTransitRoute(
       double startLng, double startLat, double endLng, double endLat) {
-    log.info(
-        "ODsay 대중교통 길찾기 연동 테스트 시작 - 출발지: {},{}, 도착지: {},{}", startLng, startLat, endLng, endLat);
+    return requestTransitRoute(startLng, startLat, endLng, endLat);
+  }
 
-    // ODsay 대중교통 길찾기 API (경로탐색)
-    // 파라미터: apiKey, SX(출발지 경도), SY(출발지 위도), EX(도착지 경도), EY(도착지 위도)
+  private String requestTransitRoute(
+      double startLng, double startLat, double endLng, double endLat) {
+    log.info(
+        "ODsay transit route lookup start. start={},{} end={},{}",
+        startLng,
+        startLat,
+        endLng,
+        endLat);
+
     String requestUrl =
         baseUrl
             + "/v1/api/searchPubTransPathT"
@@ -43,7 +62,10 @@ public class OdsayRouteService {
             + "&EX="
             + endLng
             + "&EY="
-            + endLat;
+            + endLat
+            + "&OPT=0"
+            + "&SearchType=0"
+            + "&SearchPathType=0";
 
     String rawResponse =
         webClient
@@ -57,28 +79,139 @@ public class OdsayRouteService {
                         .bodyToMono(String.class)
                         .flatMap(
                             errorBody -> {
-                              log.error("ODsay 클라이언트 에러(4xx) 발생. Response: {}", errorBody);
+                              log.error("ODsay client error. response={}", errorBody);
                               return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
                             }))
             .onStatus(
                 HttpStatusCode::is5xxServerError,
                 response -> {
-                  log.error("ODsay 외부 서버 에러(5xx) 발생.");
+                  log.error("ODsay server error.");
                   return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
                 })
             .bodyToMono(String.class)
             .onErrorMap(
                 throwable -> {
-                  log.error("ODsay API 호출 중 네트워크/타임아웃 에러 발생: {}", throwable.getMessage());
+                  log.error("ODsay request failed: {}", throwable.getMessage());
                   return new CustomException(ErrorCode.ODSAY_API_FAILED);
                 })
             .block();
 
     if (rawResponse == null) {
-      log.error("ODsay 응답이 null 입니다.");
       throw new CustomException(ErrorCode.ODSAY_API_FAILED);
     }
 
     return rawResponse;
+  }
+
+  private TransitRouteResponse parseTransitRoute(String rawResponse) {
+    try {
+      JsonNode root = OBJECT_MAPPER.readTree(rawResponse);
+      JsonNode errorNode = root.path("error");
+      if (!errorNode.isMissingNode() && !errorNode.isNull() && !errorNode.isEmpty()) {
+        log.warn("ODsay returned error payload: {}", errorNode.toString());
+        throw new CustomException(ErrorCode.ODSAY_API_FAILED);
+      }
+
+      JsonNode pathNodes = root.at("/result/path");
+      if (pathNodes.isMissingNode() || pathNodes.isNull()) {
+        throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
+      }
+
+      List<TransitRouteResponse.RouteOption> routes = new ArrayList<>();
+      if (pathNodes.isArray()) {
+        for (JsonNode pathNode : pathNodes) {
+          TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNode);
+          if (routeOption != null) {
+            routes.add(routeOption);
+          }
+        }
+      } else {
+        TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNodes);
+        if (routeOption != null) {
+          routes.add(routeOption);
+        }
+      }
+
+      if (routes.isEmpty()) {
+        throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
+      }
+
+      return new TransitRouteResponse(routes.size(), routes);
+    } catch (CustomException e) {
+      throw e;
+    } catch (Exception e) {
+      log.warn("ODsay transit response parsing failed.", e);
+      throw new CustomException(ErrorCode.ODSAY_API_FAILED);
+    }
+  }
+
+  private TransitRouteResponse.RouteOption parseRouteOption(JsonNode pathNode) {
+    if (pathNode == null || pathNode.isMissingNode() || pathNode.isNull()) {
+      return null;
+    }
+
+    JsonNode info = pathNode.path("info");
+    List<TransitRouteResponse.Segment> segments = new ArrayList<>();
+    JsonNode subPaths = pathNode.path("subPath");
+    if (subPaths.isArray()) {
+      for (JsonNode subPath : subPaths) {
+        segments.add(parseSegment(subPath));
+      }
+    }
+
+    return new TransitRouteResponse.RouteOption(
+        intValue(pathNode, "pathType"),
+        intValue(info, "totalTime"),
+        intValue(info, "totalDistance"),
+        intValue(info, "payment"),
+        intValue(info, "transferCount"),
+        segments);
+  }
+
+  private TransitRouteResponse.Segment parseSegment(JsonNode subPath) {
+    if (subPath == null || subPath.isMissingNode() || subPath.isNull()) {
+      return new TransitRouteResponse.Segment(null, null, null, null, null, List.of());
+    }
+
+    List<String> laneNames = new ArrayList<>();
+    JsonNode lanes = subPath.path("lane");
+    if (lanes.isArray()) {
+      for (JsonNode lane : lanes) {
+        addLaneName(laneNames, lane);
+      }
+    } else {
+      addLaneName(laneNames, lanes);
+    }
+
+    return new TransitRouteResponse.Segment(
+        intValue(subPath, "trafficType"),
+        textValue(subPath, "startName"),
+        textValue(subPath, "endName"),
+        intValue(subPath, "distance"),
+        intValue(subPath, "sectionTime"),
+        laneNames);
+  }
+
+  private void addLaneName(List<String> laneNames, JsonNode lane) {
+    String name = textValue(lane, "name");
+    if (name != null && !name.isBlank()) {
+      laneNames.add(name);
+    }
+  }
+
+  private Integer intValue(JsonNode node, String fieldName) {
+    if (node == null || node.isMissingNode() || node.isNull()) {
+      return null;
+    }
+    JsonNode field = node.get(fieldName);
+    return field == null || field.isNull() ? null : field.asInt();
+  }
+
+  private String textValue(JsonNode node, String fieldName) {
+    if (node == null || node.isMissingNode() || node.isNull()) {
+      return null;
+    }
+    JsonNode field = node.get(fieldName);
+    return field == null || field.isNull() ? null : field.asText();
   }
 }
