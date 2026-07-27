@@ -177,11 +177,10 @@ public class OdsayRouteService {
     JsonNode lanes = subPath.path("lane");
     if (lanes.isArray()) {
       for (JsonNode lane : lanes) {
-        String name = textValue(lane, "name");
-        if (name != null && !name.isBlank()) {
-          laneNames.add(name);
-        }
+        addLaneName(laneNames, lane);
       }
+    } else {
+      addLaneName(laneNames, lanes);
     }
 
     return new TransitRouteResponse.Segment(
@@ -191,6 +190,13 @@ public class OdsayRouteService {
         intValue(subPath, "distance"),
         intValue(subPath, "sectionTime"),
         laneNames);
+  }
+
+  private void addLaneName(List<String> laneNames, JsonNode lane) {
+    String name = textValue(lane, "name");
+    if (name != null && !name.isBlank()) {
+      laneNames.add(name);
+    }
   }
 
   private Integer intValue(JsonNode node, String fieldName) {
