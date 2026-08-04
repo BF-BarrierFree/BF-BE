@@ -15,12 +15,6 @@ spring:
         show_sql: true # 배포 시 false로 바꿀 것
         format_sql: true # 배포 시 false로 바꿀 것
         use_sql_comments: true # 배포 시 false로 바꿀 것
-  
-  # --- 파일 업로드(Multipart) 용량 제한 설정 ---
-  servlet:
-    multipart:
-      max-file-size: 20MB       # 파일 하나당 최대 허용 크기 (리뷰용 고화질 사진 대비)
-      max-request-size: 100MB    # 한 번의 요청에 포함될 수 있는 전체 파일의 최대 크기 (다중 이미지 업로드 대비)
 
 app:
   url: ${APP_URL:http://localhost:8080}
@@ -63,19 +57,3 @@ jwt:
   secret: ${JWT_SECRET}
   access-expiration: ${JWT_ACCESS_EXPIRATION}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION}
-
-# --- Cloudflare R2 설정 ---
-cloud:
-  cloudflare:
-    r2:
-      credentials:
-        access-key: ${R2_ACCESS_KEY}
-        secret-key: ${R2_SECRET_KEY}
-      bucket: ${R2_BUCKET:bf-images}
-      endpoint: ${R2_ENDPOINT}
-      region: auto
-      public-url: ${R2_PUBLIC_URL}
-
-# --- Embedding용 Jina API 설정 ---
-jina:
-  api-key: ${JINA_API_KEY}

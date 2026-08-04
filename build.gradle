@@ -61,17 +61,6 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
-
-    // === Cloudflare R2 (AWS S3 호환 SDK) ===
-    implementation 'com.amazonaws:aws-java-sdk-s3:1.12.700' 
-
-    // === Vector DB (PostgreSQL pgvector) ===
-    implementation 'com.pgvector:pgvector:0.1.4'
-    implementation 'org.hibernate.orm:hibernate-vector:6.4.4.Final'
-
-    // === Google Cloud Auth (service-account-key.json 인증용) ===
-    implementation 'com.google.auth:google-auth-library-oauth2-http:1.23.0'
-    implementation 'com.google.genai:google-genai:0.2.0'
 }
 
 dependencyManagement {
