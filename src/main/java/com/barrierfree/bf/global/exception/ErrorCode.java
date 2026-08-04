@@ -38,7 +38,11 @@ public enum ErrorCode {
     // Auth & Kakao
     KAKAO_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A001", "카카오 로그인(토큰 발급)에 실패했습니다."),
     KAKAO_USER_INFO_FAILED(HttpStatus.UNAUTHORIZED, "A002", "카카오 유저 정보 조회에 실패했습니다."),
-    KAKAO_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "A003", "카카오 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요.");
+    KAKAO_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "A003", "카카오 서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해 주세요."),
+
+    // --- 이미지 및 파일 업로드 관련 에러 (Image) ---
+    INVALID_IMAGE_FORMAT(HttpStatus.BAD_REQUEST, "I001", "지원하지 않는 이미지 형식입니다. (jpg, jpeg, png, webp 등만 허용)"),
+    IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "I002", "이미지 업로드 중 서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 
     private final HttpStatus status; // HTTP 상태 코드
     private final String code; // 서비스 고유 에러 코드

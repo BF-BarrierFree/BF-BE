@@ -40,7 +40,7 @@ public class SecurityConfig {
     CorsConfiguration config = new CorsConfiguration();
 
     // 환경별 설정 파일에서 허용 도메인 가져오기
-    config.setAllowedOrigins(allowedOrigins);
+    config.setAllowedOriginPatterns(List.of("*"));
 
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     config.setAllowedHeaders(List.of("*"));
@@ -74,20 +74,20 @@ public class SecurityConfig {
                     // 로그아웃은 인증 필요 (더 구체적인 규칙이므로 /api/v1/auth/** 보다 먼저 배치)
                     .requestMatchers("/api/v1/auth/logout")
                     .authenticated()
-                    // 헬스체크 및 추후 오픈할 경로는 인증 없이 접근 허용
+                    .requestMatchers(HttpMethod.GET, "/api/v1/places/**", "/api/v1/reviews/**")
+                    .permitAll()
+                    // 헬스체크 및 기타 공용 경로는 인증 없이 접근 허용
                     .requestMatchers(
                         "/",
                         "/api/health",
                         "/api/v1/auth/**",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
-                        "/api/v1/places/**",
                         "/api/v1/test/places/**",
                         "/login/**",
-                        "/api/v1/routes/**" // 로그인 없어도 가능한 기능이라 열어둠.
-                        )
+                        "/api/v1/routes/**"
+                    )
                     .permitAll()
-                    // 나머지 모든 요청은 우선 인증 필요
                     .anyRequest()
                     .authenticated());
 
