@@ -6,6 +6,7 @@ import com.barrierfree.bf.route.dto.VehicleRouteResponse;
 import com.barrierfree.bf.route.dto.WalkingRouteResponse;
 import com.barrierfree.bf.route.service.OdsayRouteService;
 import com.barrierfree.bf.route.service.OrsRouteService;
+import com.barrierfree.bf.route.service.RouteSearchHistoryService;
 import com.barrierfree.bf.route.service.TagoRouteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,7 @@ public class RouteController {
   private final OrsRouteService orsRouteService;
   private final TagoRouteService tagoRouteService;
   private final OdsayRouteService odsayRouteService;
+  private final RouteSearchHistoryService routeSearchHistoryService;
 
   @GetMapping("/walk")
   public ApiResponse<WalkingRouteResponse> getWalkingRoute(
@@ -28,6 +30,7 @@ public class RouteController {
       @RequestParam double startLat,
       @RequestParam double endLng,
       @RequestParam double endLat) {
+    routeSearchHistoryService.save("WALK", startLng, startLat, endLng, endLat);
     WalkingRouteResponse response =
         orsRouteService.getAccessibleWalkingRoute(startLng, startLat, endLng, endLat);
     return ApiResponse.success(response, "도보 경로를 성공적으로 찾았습니다.");
@@ -39,6 +42,7 @@ public class RouteController {
       @RequestParam double startLat,
       @RequestParam double endLng,
       @RequestParam double endLat) {
+    routeSearchHistoryService.save("VEHICLE", startLng, startLat, endLng, endLat);
     VehicleRouteResponse response =
         orsRouteService.getVehicleRoute(startLng, startLat, endLng, endLat);
     return ApiResponse.success(response, "차량 경로를 성공적으로 찾았습니다.");
@@ -50,6 +54,7 @@ public class RouteController {
       @RequestParam double startLat,
       @RequestParam double endLng,
       @RequestParam double endLat) {
+    routeSearchHistoryService.save("TRANSIT", startLng, startLat, endLng, endLat);
     TransitRouteResponse response =
         odsayRouteService.getTransitRoute(startLng, startLat, endLng, endLat);
     return ApiResponse.success(response, "대중교통 경로를 성공적으로 찾았습니다.");
