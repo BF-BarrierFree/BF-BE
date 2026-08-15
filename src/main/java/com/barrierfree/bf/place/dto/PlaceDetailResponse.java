@@ -29,4 +29,5 @@ public record PlaceDetailResponse(
     Boolean signLanguage,
     Boolean restArea,
     Boolean subtitleService,
-    String accessibilityDataSource) {}
+    String accessibilityDataSource,
+    String photoUrl) {}

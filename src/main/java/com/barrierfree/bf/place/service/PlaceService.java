@@ -44,6 +44,8 @@ public class PlaceService {
           + "places.formattedAddress,"
           + "places.location,"
           + "places.accessibilityOptions,"
+          + "places.regularOpeningHours,"
+          + "places.photos,"
           + "nextPageToken";
 
   @Value("${google.places.api-key}")
@@ -138,7 +140,8 @@ public class PlaceService {
           publicInfo.signLanguage(),
           publicInfo.restArea(),
           publicInfo.subtitleService(),
-          publicInfo.sourceStatus());
+          publicInfo.sourceStatus(),
+          null);
     }
 
     GooglePlaceResponseDto.Place place = placeTestService.getPlaceDetails(placeId);
@@ -189,7 +192,8 @@ public class PlaceService {
         publicInfo.signLanguage(),
         publicInfo.restArea(),
         publicInfo.subtitleService(),
-        resolveAccessibilityDataSource(publicInfo, false));
+        resolveAccessibilityDataSource(publicInfo, false),
+        buildPhotoUrl(place));
   }
 
   public PlaceSearchResponse search(
@@ -625,6 +629,7 @@ public class PlaceService {
       Map<String, PublicBarrierFreeInfo> publicInfoCache) {
     GooglePlaceResponseDto.Location location = place.getLocation();
     GooglePlaceResponseDto.AccessibilityOptions accessibility = place.getAccessibilityOptions();
+    GooglePlaceResponseDto.OpeningHours openingHours = place.getRegularOpeningHours();
     String name = place.getDisplayName() == null ? null : place.getDisplayName().getText();
     PublicBarrierFreeInfo publicInfo = getPublicInfo(name, publicInfoCache);
 
@@ -636,6 +641,7 @@ public class PlaceService {
         location == null ? null : location.getLongitude(),
         category,
         category.getLabel(),
+        openingHours == null ? null : openingHours.getOpenNow(),
         merge(accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
             publicInfo.ramp()),
         merge(
@@ -658,7 +664,8 @@ public class PlaceService {
         publicInfo.signLanguage(),
         publicInfo.restArea(),
         publicInfo.subtitleService(),
-        resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested));
+        resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested),
+        buildPhotoUrl(place));
   }
 
   private PlaceSearchResponse.PlaceSummary toPlaceSummary(
@@ -675,6 +682,7 @@ public class PlaceService {
         place.longitude(),
         category,
         category.getLabel(),
+        null,
         publicInfo.ramp(),
         publicInfo.accessibleParking(),
         publicInfo.accessibleRestroom(),
@@ -690,7 +698,24 @@ public class PlaceService {
         publicInfo.signLanguage(),
         publicInfo.restArea(),
         publicInfo.subtitleService(),
-        resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested));
+        resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested),
+        null);
+  }
+
+  private String buildPhotoUrl(GooglePlaceResponseDto.Place place) {
+    if (place == null || place.getPhotos() == null || place.getPhotos().isEmpty()) {
+      return null;
+    }
+
+    String photoName = place.getPhotos().getFirst().getName();
+    if (photoName == null || photoName.isBlank()) {
+      return null;
+    }
+
+    return "https://places.googleapis.com/v1/"
+        + photoName
+        + "/media?maxWidthPx=800&key="
+        + googleApiKey;
   }
 
   private PublicBarrierFreeInfo getPublicInfo(

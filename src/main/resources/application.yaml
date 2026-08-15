@@ -15,7 +15,7 @@ spring:
         show_sql: true # 배포 시 false로 바꿀 것
         format_sql: true # 배포 시 false로 바꿀 것
         use_sql_comments: true # 배포 시 false로 바꿀 것
-  
+
   # --- 파일 업로드(Multipart) 용량 제한 설정 ---
   servlet:
     multipart:
@@ -69,13 +69,13 @@ cloud:
   cloudflare:
     r2:
       credentials:
-        access-key: ${R2_ACCESS_KEY}
-        secret-key: ${R2_SECRET_KEY}
+        access-key: ${R2_ACCESS_KEY:local-r2-access-key}
+        secret-key: ${R2_SECRET_KEY:local-r2-secret-key}
       bucket: ${R2_BUCKET:bf-images}
-      endpoint: ${R2_ENDPOINT}
+      endpoint: ${R2_ENDPOINT:http://localhost:9000}
       region: auto
-      public-url: ${R2_PUBLIC_URL}
+      public-url: ${R2_PUBLIC_URL:http://localhost:9000/bf-images}
 
 # --- Embedding용 Jina API 설정 ---
 jina:
-  api-key: ${JINA_API_KEY}
+  api-key: ${JINA_API_KEY:local-jina-api-key}
