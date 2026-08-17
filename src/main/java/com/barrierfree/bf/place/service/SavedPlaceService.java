@@ -48,7 +48,7 @@ public class SavedPlaceService {
   public SavedPlaceResponse.SavedPlaceSummary savePlace(
       Long userId, Long listId, SavedPlaceCreateRequest request) {
     SavedPlaceList placeList = findPlaceList(userId, listId);
-    validateLocation(request.latitude(), request.longitude());
+    validateLocation(request.lat(), request.lng());
 
     String placeId = normalizeRequiredText(request.placeId());
     String name = normalizeRequiredText(request.name());
@@ -65,8 +65,8 @@ public class SavedPlaceService {
                         category,
                         request.openNow(),
                         normalizeOptionalText(request.address()),
-                        request.latitude(),
-                        request.longitude(),
+                        request.lat(),
+                        request.lng(),
                         normalizeOptionalText(request.photoUrl())));
 
     savedPlace.updateSnapshot(
@@ -74,8 +74,8 @@ public class SavedPlaceService {
         category,
         request.openNow(),
         normalizeOptionalText(request.address()),
-        request.latitude(),
-        request.longitude(),
+        request.lat(),
+        request.lng(),
         normalizeOptionalText(request.photoUrl()));
 
     return toPlaceSummary(savedPlaceRepository.save(savedPlace));

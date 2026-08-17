@@ -14,8 +14,8 @@ public record SavedPlaceResponse(List<SavedPlaceSummary> places) {
       String categoryLabel,
       Boolean openNow,
       String address,
-      Double latitude,
-      Double longitude,
+      Double lat,
+      Double lng,
       String photoUrl,
       LocalDateTime createdAt) {}
 }

@@ -500,7 +500,7 @@ public class PlaceService {
 
   private boolean isWithinSearchArea(
       PlaceSearchResponse.PlaceSummary place, Double lat, Double lng, Integer radius) {
-    return isWithinSearchArea(place.latitude(), place.longitude(), lat, lng, radius);
+    return isWithinSearchArea(place.lat(), place.lng(), lat, lng, radius);
   }
 
   private boolean isWithinSearchArea(

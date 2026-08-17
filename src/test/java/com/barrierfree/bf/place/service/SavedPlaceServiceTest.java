@@ -63,8 +63,8 @@ class SavedPlaceServiceTest {
     assertThat(response.name()).isEqualTo("서울역");
     assertThat(response.category()).isEqualTo(PlaceCategory.TRANSPORTATION);
     assertThat(response.openNow()).isTrue();
-    assertThat(response.latitude()).isEqualTo(37.5546788);
-    assertThat(response.longitude()).isEqualTo(126.9706069);
+    assertThat(response.lat()).isEqualTo(37.5546788);
+    assertThat(response.lng()).isEqualTo(126.9706069);
     assertThat(response.photoUrl()).isEqualTo("https://example.com/photo.jpg");
   }
 
