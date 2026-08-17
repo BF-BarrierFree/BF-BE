@@ -12,6 +12,7 @@ import com.barrierfree.bf.place.dto.PlaceAutocompleteResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchResponse;
 import com.barrierfree.bf.place.dto.PublicBarrierFreeInfo;
 import com.barrierfree.bf.place.dto.PublicBarrierFreePlace;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,8 +21,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 @Slf4j
@@ -194,6 +198,50 @@ public class PlaceService {
         publicInfo.subtitleService(),
         resolveAccessibilityDataSource(publicInfo, false),
         buildPhotoUrl(place));
+  }
+
+  public ResponseEntity<byte[]> getPhoto(String photoName, Integer maxWidthPx) {
+    validatePhotoName(photoName);
+    int normalizedMaxWidthPx = normalizePhotoWidth(maxWidthPx);
+
+    String metadataUrl =
+        UriComponentsBuilder.fromUriString(
+                "https://places.googleapis.com/v1/" + photoName + "/media")
+            .queryParam("maxWidthPx", normalizedMaxWidthPx)
+            .queryParam("skipHttpRedirect", true)
+            .queryParam("key", googleApiKey)
+            .build()
+            .toUriString();
+
+    JsonNode photoMetadata =
+        webClient
+            .get()
+            .uri(metadataUrl)
+            .retrieve()
+            .onStatus(
+                HttpStatusCode::isError,
+                response -> {
+                  log.error("Google Places Photo metadata failed. status={}", response.statusCode());
+                  return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
+                })
+            .bodyToMono(JsonNode.class)
+            .block();
+
+    String photoUri = photoMetadata == null ? null : photoMetadata.path("photoUri").asText(null);
+    if (photoUri == null || photoUri.isBlank()) {
+      throw new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
+    }
+
+    ResponseEntity<byte[]> imageResponse =
+        webClient.get().uri(photoUri).retrieve().toEntity(byte[].class).block();
+    if (imageResponse == null || imageResponse.getBody() == null) {
+      throw new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
+    }
+
+    MediaType contentType = imageResponse.getHeaders().getContentType();
+    return ResponseEntity.status(imageResponse.getStatusCode())
+        .contentType(contentType == null ? MediaType.IMAGE_JPEG : contentType)
+        .body(imageResponse.getBody());
   }
 
   public PlaceSearchResponse search(
@@ -712,10 +760,32 @@ public class PlaceService {
       return null;
     }
 
-    return "https://places.googleapis.com/v1/"
-        + photoName
-        + "/media?maxWidthPx=800&key="
-        + googleApiKey;
+    return UriComponentsBuilder.fromPath("/api/v1/places/photos")
+        .queryParam("name", photoName)
+        .queryParam("maxWidthPx", 800)
+        .build()
+        .encode()
+        .toUriString();
+  }
+
+  private void validatePhotoName(String photoName) {
+    if (photoName == null
+        || photoName.isBlank()
+        || !photoName.startsWith("places/")
+        || !photoName.contains("/photos/")
+        || photoName.contains("..")
+        || photoName.contains("?")
+        || photoName.contains("#")
+        || photoName.contains("http")) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+  }
+
+  private int normalizePhotoWidth(Integer maxWidthPx) {
+    if (maxWidthPx == null) {
+      return 800;
+    }
+    return Math.max(1, Math.min(maxWidthPx, 1600));
   }
 
   private PublicBarrierFreeInfo getPublicInfo(

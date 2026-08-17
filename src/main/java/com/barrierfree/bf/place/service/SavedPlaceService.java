@@ -14,6 +14,7 @@ import com.barrierfree.bf.place.repository.SavedPlaceRepository;
 import com.barrierfree.bf.user.entity.User;
 import com.barrierfree.bf.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,9 @@ public class SavedPlaceService {
   private final SavedPlaceListRepository savedPlaceListRepository;
   private final SavedPlaceRepository savedPlaceRepository;
   private final UserRepository userRepository;
+
+  @Value("${google.places.api-key}")
+  private String googleApiKey;
 
   @Transactional
   public SavedPlaceListResponse.SavedPlaceListSummary createList(
@@ -67,7 +71,7 @@ public class SavedPlaceService {
                         normalizeOptionalText(request.address()),
                         request.lat(),
                         request.lng(),
-                        normalizeOptionalText(request.photoUrl())));
+                        normalizePhotoUrl(request.photoUrl())));
 
     savedPlace.updateSnapshot(
         name,
@@ -76,7 +80,7 @@ public class SavedPlaceService {
         normalizeOptionalText(request.address()),
         request.lat(),
         request.lng(),
-        normalizeOptionalText(request.photoUrl()));
+        normalizePhotoUrl(request.photoUrl()));
 
     return toPlaceSummary(savedPlaceRepository.save(savedPlace));
   }
@@ -132,6 +136,18 @@ public class SavedPlaceService {
 
   private String normalizeOptionalText(String value) {
     return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private String normalizePhotoUrl(String value) {
+    String photoUrl = normalizeOptionalText(value);
+    if (photoUrl == null) {
+      return null;
+    }
+    if ((googleApiKey != null && !googleApiKey.isBlank() && photoUrl.contains(googleApiKey))
+        || (photoUrl.contains("places.googleapis.com") && photoUrl.contains("key="))) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+    return photoUrl;
   }
 
   private SavedPlaceListResponse.SavedPlaceListSummary toListSummary(SavedPlaceList placeList) {

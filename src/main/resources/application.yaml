@@ -69,6 +69,27 @@ cloud:
   cloudflare:
     r2:
       credentials:
+        access-key: ${R2_ACCESS_KEY}
+        secret-key: ${R2_SECRET_KEY}
+      bucket: ${R2_BUCKET}
+      endpoint: ${R2_ENDPOINT}
+      region: auto
+      public-url: ${R2_PUBLIC_URL}
+
+# --- Embedding용 Jina API 설정 ---
+jina:
+  api-key: ${JINA_API_KEY}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+cloud:
+  cloudflare:
+    r2:
+      credentials:
         access-key: ${R2_ACCESS_KEY:local-r2-access-key}
         secret-key: ${R2_SECRET_KEY:local-r2-secret-key}
       bucket: ${R2_BUCKET:bf-images}
@@ -76,6 +97,5 @@ cloud:
       region: auto
       public-url: ${R2_PUBLIC_URL:http://localhost:9000/bf-images}
 
-# --- Embedding용 Jina API 설정 ---
 jina:
   api-key: ${JINA_API_KEY:local-jina-api-key}

@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -126,6 +127,18 @@ public class PlaceController {
           String placeId) {
     PlaceDetailResponse response = placeService.getDetail(placeId);
     return ApiResponse.success(response, "장소 상세조회에 성공했습니다.");
+  }
+
+  @GetMapping("/photos")
+  @Operation(summary = "장소 사진 조회", description = "Google Places 사진을 백엔드에서 대신 조회해 반환합니다.")
+  public ResponseEntity<byte[]> getPhoto(
+      @Parameter(description = "Google Places photo name", example = "places/ChIJ.../photos/...")
+          @RequestParam
+          String name,
+      @Parameter(description = "사진 최대 너비(px)", example = "800")
+          @RequestParam(defaultValue = "800", required = false)
+          Integer maxWidthPx) {
+    return placeService.getPhoto(name, maxWidthPx);
   }
 
   @GetMapping("/search-histories")
