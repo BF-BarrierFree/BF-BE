@@ -43,6 +43,7 @@ tago:
   api:
     base-url: https://apis.data.go.kr/1613000/ArvlInfoInqireService
     station-base-url: https://apis.data.go.kr/1613000/BusSttnInfoInqireService
+    taxi-center-base-url: https://apis.data.go.kr/B551982/tsdo_v2
     service-key: ${DATA_GO_KR_API_KEY}
 
 odsay:
@@ -79,3 +80,10 @@ cloud:
 # --- Embedding용 Jina API 설정 ---
 jina:
   api-key: ${JINA_API_KEY}
+
+# --- LLM API 연동 (OpenRouter, 택시 폼 스키마/요금 예상 전용) ---
+openrouter:
+  api:
+    base-url: https://openrouter.ai/api/v1/chat/completions
+    api-key: ${OPENROUTER_API_KEY}
+    model: ${OPENROUTER_MODEL:nvidia/nemotron-3-ultra-550b-a55b:free}
