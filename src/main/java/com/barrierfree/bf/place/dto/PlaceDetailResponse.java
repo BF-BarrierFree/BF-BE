@@ -6,8 +6,8 @@ public record PlaceDetailResponse(
     String placeId,
     String name,
     String address,
-    Double latitude,
-    Double longitude,
+    Double lat,
+    Double lng,
     PlaceCategory category,
     String categoryLabel,
     String phoneNumber,
@@ -29,4 +29,5 @@ public record PlaceDetailResponse(
     Boolean signLanguage,
     Boolean restArea,
     Boolean subtitleService,
-    String accessibilityDataSource) {}
+    String accessibilityDataSource,
+    String photoUrl) {}

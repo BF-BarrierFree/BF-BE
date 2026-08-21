@@ -9,10 +9,11 @@ public record PlaceSearchResponse(List<PlaceSummary> places, String nextPageToke
       String placeId,
       String name,
       String address,
-      Double latitude,
-      Double longitude,
+      Double lat,
+      Double lng,
       PlaceCategory category,
       String categoryLabel,
+      Boolean openNow,
       Boolean wheelchairAccessibleEntrance,
       Boolean wheelchairAccessibleParking,
       Boolean wheelchairAccessibleRestroom,
@@ -28,5 +29,6 @@ public record PlaceSearchResponse(List<PlaceSummary> places, String nextPageToke
       Boolean signLanguage,
       Boolean restArea,
       Boolean subtitleService,
-      String accessibilityDataSource) {}
+      String accessibilityDataSource,
+      String photoUrl) {}
 }

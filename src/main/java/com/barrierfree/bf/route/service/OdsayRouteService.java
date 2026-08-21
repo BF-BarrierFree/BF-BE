@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +24,8 @@ import reactor.core.publisher.Mono;
 public class OdsayRouteService {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+  private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
   private final WebClient webClient;
 
@@ -136,7 +141,12 @@ public class OdsayRouteService {
         throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
       }
 
-      return new TransitRouteResponse(routes.size(), routes);
+      TransitRouteResponse.RouteOption bestRoute = routes.get(0);
+      return new TransitRouteResponse(
+          routes.size(),
+          bestRoute.totalTimeMinute(),
+          bestRoute.totalDistanceMeter(),
+          routes);
     } catch (CustomException e) {
       throw e;
     } catch (Exception e) {
@@ -165,6 +175,7 @@ public class OdsayRouteService {
         intValue(info, "totalDistance"),
         intValue(info, "payment"),
         intValue(info, "transferCount"),
+        formatArrivalTime(intValue(info, "totalTime")),
         segments);
   }
 
@@ -213,5 +224,12 @@ public class OdsayRouteService {
     }
     JsonNode field = node.get(fieldName);
     return field == null || field.isNull() ? null : field.asText();
+  }
+
+  private String formatArrivalTime(Integer totalTimeMinute) {
+    if (totalTimeMinute == null) {
+      return null;
+    }
+    return ZonedDateTime.now(KOREA_ZONE).plusMinutes(totalTimeMinute).format(TIME_FORMATTER);
   }
 }

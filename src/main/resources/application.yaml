@@ -15,7 +15,7 @@ spring:
         show_sql: true # 배포 시 false로 바꿀 것
         format_sql: true # 배포 시 false로 바꿀 것
         use_sql_comments: true # 배포 시 false로 바꿀 것
-  
+
   # --- 파일 업로드(Multipart) 용량 제한 설정 ---
   servlet:
     multipart:
@@ -72,7 +72,7 @@ cloud:
       credentials:
         access-key: ${R2_ACCESS_KEY}
         secret-key: ${R2_SECRET_KEY}
-      bucket: ${R2_BUCKET:bf-images}
+      bucket: ${R2_BUCKET}
       endpoint: ${R2_ENDPOINT}
       region: auto
       public-url: ${R2_PUBLIC_URL}
@@ -87,3 +87,23 @@ openrouter:
     base-url: https://openrouter.ai/api/v1/chat/completions
     api-key: ${OPENROUTER_API_KEY}
     model: ${OPENROUTER_MODEL:nvidia/nemotron-3-ultra-550b-a55b:free}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+cloud:
+  cloudflare:
+    r2:
+      credentials:
+        access-key: ${R2_ACCESS_KEY:local-r2-access-key}
+        secret-key: ${R2_SECRET_KEY:local-r2-secret-key}
+      bucket: ${R2_BUCKET:bf-images}
+      endpoint: ${R2_ENDPOINT:http://localhost:9000}
+      region: auto
+      public-url: ${R2_PUBLIC_URL:http://localhost:9000/bf-images}
+
+jina:
+  api-key: ${JINA_API_KEY:local-jina-api-key}
