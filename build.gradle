@@ -71,7 +71,6 @@ dependencies {
 
     // === Google Cloud Auth (service-account-key.json 인증용) ===
     implementation 'com.google.auth:google-auth-library-oauth2-http:1.23.0'
-    implementation 'com.google.genai:google-genai:0.2.0'
 }
 
 dependencyManagement {
