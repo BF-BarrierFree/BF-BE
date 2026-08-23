@@ -19,6 +19,9 @@ public enum ErrorCode {
     REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "U004", "필수 약관에 모두 동의해야 합니다."),
     ONBOARDING_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "U005", "이미 온보딩이 완료된 사용자입니다."),
 
+    // --- 공지사항 관련 에러 (Notice) ---
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "공지사항을 찾을 수 없습니다."),
+
     // --- 무장애 시설 관련 에러 (Facility) ---
     FACILITY_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "해당 시설을 찾을 수 없습니다."),
 
