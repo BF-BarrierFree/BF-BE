@@ -77,7 +77,8 @@ public class RouteController {
   @Operation(summary = "TAGO 저상버스 도착 정보 테스트", description = "도시 코드와 정류소 ID로 저상버스 도착 정보를 테스트합니다.")
   @GetMapping("/test/tago/bus")
   public ApiResponse<String> testTagoLowFloorBusConnection(
-      @Parameter(description = "도시 코드", example = "25") @RequestParam(defaultValue = "25") int cityCode,
+      @Parameter(description = "도시 코드", example = "25") @RequestParam(defaultValue = "25")
+          int cityCode,
       @Parameter(description = "정류소 ID", example = "DJB8001793")
           @RequestParam(defaultValue = "DJB8001793")
           String nodeId) {

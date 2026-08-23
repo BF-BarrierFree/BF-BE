@@ -5,11 +5,11 @@ import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.route.dto.TransitRouteResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.ArrayList;
-import java.util.List;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -143,10 +143,7 @@ public class OdsayRouteService {
 
       TransitRouteResponse.RouteOption bestRoute = routes.get(0);
       return new TransitRouteResponse(
-          routes.size(),
-          bestRoute.totalTimeMinute(),
-          bestRoute.totalDistanceMeter(),
-          routes);
+          routes.size(), bestRoute.totalTimeMinute(), bestRoute.totalDistanceMeter(), routes);
     } catch (CustomException e) {
       throw e;
     } catch (Exception e) {

@@ -45,7 +45,8 @@ public record WheelchairRouteResponse(
                   if (coord == null || coord.size() < 2) {
                     throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
                   }
-                  return new Point(coord.get(0), coord.get(1), coord.size() > 2 ? coord.get(2) : 0.0);
+                  return new Point(
+                      coord.get(0), coord.get(1), coord.size() > 2 ? coord.get(2) : 0.0);
                 })
             .toList();
 

@@ -23,13 +23,39 @@ public record PublicBarrierFreeInfo(
 
   public static PublicBarrierFreeInfo notFound() {
     return new PublicBarrierFreeInfo(
-        null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         "PUBLIC_DATA_NOT_FOUND");
   }
 
   public static PublicBarrierFreeInfo apiFailed() {
     return new PublicBarrierFreeInfo(
-        null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         "PUBLIC_DATA_API_FAILED");
   }
 

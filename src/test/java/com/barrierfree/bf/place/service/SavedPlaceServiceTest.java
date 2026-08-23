@@ -27,15 +27,15 @@ class SavedPlaceServiceTest {
 
   private final SavedPlaceListRepository savedPlaceListRepository =
       Mockito.mock(SavedPlaceListRepository.class);
-  private final SavedPlaceRepository savedPlaceRepository = Mockito.mock(SavedPlaceRepository.class);
+  private final SavedPlaceRepository savedPlaceRepository =
+      Mockito.mock(SavedPlaceRepository.class);
   private final UserRepository userRepository = Mockito.mock(UserRepository.class);
   private final SavedPlaceService service =
       new SavedPlaceService(savedPlaceListRepository, savedPlaceRepository, userRepository);
 
   @Test
   void savesPlaceSnapshotInUserList() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "가고 싶은 곳");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
@@ -43,7 +43,8 @@ class SavedPlaceServiceTest {
     when(savedPlaceListRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(placeList));
     when(savedPlaceRepository.findByPlaceListIdAndPlaceId(10L, "place-1"))
         .thenReturn(Optional.empty());
-    when(savedPlaceRepository.save(any(SavedPlace.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(savedPlaceRepository.save(any(SavedPlace.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     var response =
         service.savePlace(
@@ -70,8 +71,7 @@ class SavedPlaceServiceTest {
 
   @Test
   void rejectsInvalidLocationWithoutSavingPlace() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "가고 싶은 곳");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
@@ -87,7 +87,8 @@ class SavedPlaceServiceTest {
                         "place-1", "서울역", "TRANSPORTATION", true, "서울 중구", 91.0, 126.9, null)))
         .isInstanceOfSatisfying(
             CustomException.class,
-            exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
     verify(savedPlaceRepository, never()).save(any(SavedPlace.class));
   }

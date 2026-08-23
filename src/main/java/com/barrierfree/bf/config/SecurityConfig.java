@@ -1,6 +1,8 @@
 package com.barrierfree.bf.config;
 
+import com.barrierfree.bf.global.auth.JwtAuthenticationFilter;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,12 +13,10 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import com.barrierfree.bf.global.auth.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -93,8 +93,7 @@ public class SecurityConfig {
                         "/v3/api-docs/**",
                         "/api/v1/test/places/**",
                         "/login/**",
-                        "/api/v1/routes/**"
-                    )
+                        "/api/v1/routes/**")
                     .permitAll()
                     .anyRequest()
                     .authenticated());

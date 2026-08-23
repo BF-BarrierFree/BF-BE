@@ -41,6 +41,9 @@ public record OrsRouteRequest(
       Map<String, List<String>> options,
       List<String> extraInfo) {
     return new OrsRouteRequest(
-        List.of(List.of(startLng, startLat), List.of(endLng, endLat)), elevation, options, extraInfo);
+        List.of(List.of(startLng, startLat), List.of(endLng, endLat)),
+        elevation,
+        options,
+        extraInfo);
   }
 }
