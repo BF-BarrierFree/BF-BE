@@ -7,7 +7,6 @@ import com.barrierfree.bf.route.dto.OrsRouteRequest;
 import com.barrierfree.bf.route.dto.VehicleRouteResponse;
 import com.barrierfree.bf.route.dto.WalkingRouteResponse;
 import com.barrierfree.bf.route.dto.WheelchairRouteResponse;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -44,7 +43,8 @@ public class OrsRouteService {
       double startLng, double startLat, double endLng, double endLat) {
     return WheelchairRouteResponse.from(
         fetchRoute(
-            WHEELCHAIR_PROFILE, OrsRouteRequest.createWheelchair(startLng, startLat, endLng, endLat)));
+            WHEELCHAIR_PROFILE,
+            OrsRouteRequest.createWheelchair(startLng, startLat, endLng, endLat)));
   }
 
   @Cacheable(
@@ -54,7 +54,8 @@ public class OrsRouteService {
       double startLng, double startLat, double endLng, double endLat) {
     OrsGeoJsonResponse rawResponse =
         fetchRoute(
-            WHEELCHAIR_PROFILE, OrsRouteRequest.createWheelchair(startLng, startLat, endLng, endLat));
+            WHEELCHAIR_PROFILE,
+            OrsRouteRequest.createWheelchair(startLng, startLat, endLng, endLat));
     WheelchairRouteResponse route = WheelchairRouteResponse.from(rawResponse);
     return WalkingRouteResponse.from(route, true, "WHEELCHAIR_ACCESSIBLE");
   }
@@ -95,7 +96,8 @@ public class OrsRouteService {
                         .bodyToMono(String.class)
                         .flatMap(
                             errorBody -> {
-                              log.error("ORS client error. profile={}, response={}", profile, errorBody);
+                              log.error(
+                                  "ORS client error. profile={}, response={}", profile, errorBody);
                               if (errorBody.contains("\"code\":2009")
                                   || errorBody.contains("\"code\":2010")
                                   || errorBody.contains("could not be found")) {

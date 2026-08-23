@@ -1,9 +1,6 @@
 package com.barrierfree.bf.route.repository;
 
 import jakarta.annotation.PostConstruct;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -36,11 +33,7 @@ public class RouteSearchHistoryJdbcRepository {
   }
 
   public void save(
-      String routeType,
-      Double startLng,
-      Double startLat,
-      Double endLng,
-      Double endLat) {
+      String routeType, Double startLng, Double startLat, Double endLng, Double endLat) {
     jdbcTemplate.update(
         """
         insert into route_search_history

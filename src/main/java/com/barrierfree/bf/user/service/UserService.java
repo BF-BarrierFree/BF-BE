@@ -25,155 +25,150 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserService {
 
-    private final UserRepository userRepository;
-    private final TermRepository termRepository;
-    private final UserTermAgreementRepository userTermAgreementRepository;
-    private final JwtProvider jwtProvider;
+  private final UserRepository userRepository;
+  private final TermRepository termRepository;
+  private final UserTermAgreementRepository userTermAgreementRepository;
+  private final JwtProvider jwtProvider;
 
-    /**
-     * GUEST 유저의 온보딩(추가 정보 입력 및 약관 동의)을 처리하고 USER 권한으로 승격합니다.
-     */
-    @Transactional
-    public OnboardingResponse onboarding(Long userId, OnboardingRequest request) {
-        // 1. 유저 조회
-        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+  /** GUEST 유저의 온보딩(추가 정보 입력 및 약관 동의)을 처리하고 USER 권한으로 승격합니다. */
+  @Transactional
+  public OnboardingResponse onboarding(Long userId, OnboardingRequest request) {
+    // 1. 유저 조회
+    User user =
+        userRepository
+            .findByIdAndIsDeletedFalse(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 온보딩 자격 검증 (GUEST 유저만 온보딩 가능)
-        if (user.getRole() != Role.GUEST) {
-            throw new CustomException(ErrorCode.ONBOARDING_ALREADY_COMPLETED); // 이 부분 ErrorCode에 추가되어 있어야 함
-        }
-
-        // 3. 닉네임 중복 검증
-        if (userRepository.existsByNickname(request.getNickname())) {
-            throw new CustomException(ErrorCode.NICKNAME_DUPLICATED);
-        }
-
-        // 4. 약관 동의 처리 (필수 약관 누락 검증 및 매핑 테이블 저장)
-        processTermAgreements(user, request.getAgreedTermIds());
-
-        // 5. 온보딩 정보 업데이트 (닉네임, 다중 선택 항목) 및 권한 승격(GUEST -> USER)
-        user.completeOnboarding(request.getNickname(), request.getMobilities(), request.getFacilities());
-
-        // 6. 권한이 USER로 승격되었으므로 새로운 Access/Refresh JWT 토큰 발급
-        String newAccessToken = jwtProvider.generateAccessToken(user);
-        String newRefreshToken = jwtProvider.generateRefreshToken(user);
-
-        // 새 Refresh Token DB 반영
-        user.updateRefreshToken(newRefreshToken);
-
-        // 7. 응답 DTO 반환
-        return OnboardingResponse.builder()
-            .accessToken(newAccessToken)
-            .refreshToken(newRefreshToken)
-            .nickname(user.getNickname())
-            .role(user.getRole())
-            .build();
+    // 2. 온보딩 자격 검증 (GUEST 유저만 온보딩 가능)
+    if (user.getRole() != Role.GUEST) {
+      throw new CustomException(
+          ErrorCode.ONBOARDING_ALREADY_COMPLETED); // 이 부분 ErrorCode에 추가되어 있어야 함
     }
 
-    /**
-     * 프론트엔드에서 넘어온 동의한 약관 ID 목록을 바탕으로 필수 약관 검증 및 DB 저장을 수행합니다.
-     */
-    private void processTermAgreements(User user, List<Long> agreedTermIds) {
-        // DB에 등록된 활성화된 전체 약관 조회
-        List<Term> activeTerms = termRepository.findByIsActiveTrue();
+    // 3. 닉네임 중복 검증
+    if (userRepository.existsByNickname(request.getNickname())) {
+      throw new CustomException(ErrorCode.NICKNAME_DUPLICATED);
+    }
 
-        // 활성화된 약관 ID 목록 추출
-        List<Long> activeTermIds = activeTerms.stream()
-            .map(Term::getId)
-            .collect(Collectors.toList());
+    // 4. 약관 동의 처리 (필수 약관 누락 검증 및 매핑 테이블 저장)
+    processTermAgreements(user, request.getAgreedTermIds());
 
-        // 유저가 동의한 모든 약관 ID가 활성화된 약관에 존재하는지 검증
-        boolean allAgreedTermsAreValid = agreedTermIds.stream()
-            .allMatch(activeTermIds::contains);
+    // 5. 온보딩 정보 업데이트 (닉네임, 다중 선택 항목) 및 권한 승격(GUEST -> USER)
+    user.completeOnboarding(
+        request.getNickname(), request.getMobilities(), request.getFacilities());
 
-        if (!allAgreedTermsAreValid) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+    // 6. 권한이 USER로 승격되었으므로 새로운 Access/Refresh JWT 토큰 발급
+    String newAccessToken = jwtProvider.generateAccessToken(user);
+    String newRefreshToken = jwtProvider.generateRefreshToken(user);
 
-        // 등록된 필수 약관 목록이 유저가 넘긴 agreedTermIds에 모두 포함되어 있는지 확인
-        boolean hasAllRequiredTerms = activeTerms.stream()
+    // 새 Refresh Token DB 반영
+    user.updateRefreshToken(newRefreshToken);
+
+    // 7. 응답 DTO 반환
+    return OnboardingResponse.builder()
+        .accessToken(newAccessToken)
+        .refreshToken(newRefreshToken)
+        .nickname(user.getNickname())
+        .role(user.getRole())
+        .build();
+  }
+
+  /** 프론트엔드에서 넘어온 동의한 약관 ID 목록을 바탕으로 필수 약관 검증 및 DB 저장을 수행합니다. */
+  private void processTermAgreements(User user, List<Long> agreedTermIds) {
+    // DB에 등록된 활성화된 전체 약관 조회
+    List<Term> activeTerms = termRepository.findByIsActiveTrue();
+
+    // 활성화된 약관 ID 목록 추출
+    List<Long> activeTermIds = activeTerms.stream().map(Term::getId).collect(Collectors.toList());
+
+    // 유저가 동의한 모든 약관 ID가 활성화된 약관에 존재하는지 검증
+    boolean allAgreedTermsAreValid = agreedTermIds.stream().allMatch(activeTermIds::contains);
+
+    if (!allAgreedTermsAreValid) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    // 등록된 필수 약관 목록이 유저가 넘긴 agreedTermIds에 모두 포함되어 있는지 확인
+    boolean hasAllRequiredTerms =
+        activeTerms.stream()
             .filter(Term::isRequired)
             .allMatch(term -> agreedTermIds.contains(term.getId()));
 
-        if (!hasAllRequiredTerms) {
-            throw new CustomException(ErrorCode.REQUIRED_TERMS_NOT_AGREED);
-        }
+    if (!hasAllRequiredTerms) {
+      throw new CustomException(ErrorCode.REQUIRED_TERMS_NOT_AGREED);
+    }
 
-        // 유저가 체크(동의)한 약관만 필터링하여 매핑 엔티티 생성 후 Bulk Save
-        List<UserTermAgreement> agreements = activeTerms.stream()
+    // 유저가 체크(동의)한 약관만 필터링하여 매핑 엔티티 생성 후 Bulk Save
+    List<UserTermAgreement> agreements =
+        activeTerms.stream()
             .filter(term -> agreedTermIds.contains(term.getId()))
-            .map(term -> UserTermAgreement.builder()
-                .user(user)
-                .term(term)
-                .isAgreed(true)
-                .build())
+            .map(term -> UserTermAgreement.builder().user(user).term(term).isAgreed(true).build())
             .collect(Collectors.toList());
 
-        userTermAgreementRepository.saveAll(agreements);
-    }
+    userTermAgreementRepository.saveAll(agreements);
+  }
 
-    /**
-     * 내 프로필 정보(마이페이지)를 조회합니다.
-     */
-    @Transactional(readOnly = true)
-    public UserProfileResponse getMyProfile(Long userId) {
-        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+  /** 내 프로필 정보(마이페이지)를 조회합니다. */
+  @Transactional(readOnly = true)
+  public UserProfileResponse getMyProfile(Long userId) {
+    User user =
+        userRepository
+            .findByIdAndIsDeletedFalse(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        return UserProfileResponse.builder()
-            .nickname(user.getNickname())
-            .profileImageUrl(user.getProfileImageUrl())
-            .role(user.getRole())
-            .mobilities(user.getMobilities())
-            .facilities(user.getFacilities())
-            .build();
-    }
+    return UserProfileResponse.builder()
+        .nickname(user.getNickname())
+        .profileImageUrl(user.getProfileImageUrl())
+        .role(user.getRole())
+        .mobilities(user.getMobilities())
+        .facilities(user.getFacilities())
+        .build();
+  }
 
-    /**
-     * 내 프로필 정보(닉네임, 다중 선택 항목)를 수정합니다.
-     */
-    @Transactional
-    public void updateMyProfile(Long userId, UserUpdateRequest request) {
-        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+  /** 내 프로필 정보(닉네임, 다중 선택 항목)를 수정합니다. */
+  @Transactional
+  public void updateMyProfile(Long userId, UserUpdateRequest request) {
+    User user =
+        userRepository
+            .findByIdAndIsDeletedFalse(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 기존 닉네임과 다를 경우에만 중복 검사 수행
-        if (!user.getNickname().equals(request.getNickname()) &&
-            userRepository.existsByNickname(request.getNickname())) {
-            throw new CustomException(ErrorCode.NICKNAME_DUPLICATED);
-        }
-
-        user.updateProfile(request.getNickname(), request.getMobilities(), request.getFacilities());
+    // 기존 닉네임과 다를 경우에만 중복 검사 수행
+    if (!user.getNickname().equals(request.getNickname())
+        && userRepository.existsByNickname(request.getNickname())) {
+      throw new CustomException(ErrorCode.NICKNAME_DUPLICATED);
     }
 
-    /**
-     * 내 선호 필터 정보(온보딩 결과)를 조회합니다.
-     */
-    @Transactional(readOnly = true)
-    public UserPreferenceResponse getPreferences(Long userId) {
-        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+    user.updateProfile(request.getNickname(), request.getMobilities(), request.getFacilities());
+  }
+
+  /** 내 선호 필터 정보(온보딩 결과)를 조회합니다. */
+  @Transactional(readOnly = true)
+  public UserPreferenceResponse getPreferences(Long userId) {
+    User user =
+        userRepository
+            .findByIdAndIsDeletedFalse(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        return new UserPreferenceResponse(
-            user.getId(),
-            user.getNickname(),
-            user.getRole(),
-            user.getMobilities(),
-            user.getFacilities());
-    }
+    return new UserPreferenceResponse(
+        user.getId(),
+        user.getNickname(),
+        user.getRole(),
+        user.getMobilities(),
+        user.getFacilities());
+  }
 
-    /**
-     * 회원 탈퇴 처리를 수행합니다. (Soft Delete 및 개인정보 마스킹)
-     */
-    @Transactional
-    public void withdraw(Long userId) {
-        User user = userRepository.findByIdAndIsDeletedFalse(userId)
+  /** 회원 탈퇴 처리를 수행합니다. (Soft Delete 및 개인정보 마스킹) */
+  @Transactional
+  public void withdraw(Long userId) {
+    User user =
+        userRepository
+            .findByIdAndIsDeletedFalse(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 탈퇴한 유저의 닉네임을 "삭제된사용자_UUID" 형태로 마스킹하여 다른 유저가 해당 닉네임을 사용할 수 있도록 함
-        String maskedNickname = "탈퇴유저_" + java.util.UUID.randomUUID().toString();
+    // 탈퇴한 유저의 닉네임을 "삭제된사용자_UUID" 형태로 마스킹하여 다른 유저가 해당 닉네임을 사용할 수 있도록 함
+    String maskedNickname = "탈퇴유저_" + java.util.UUID.randomUUID().toString();
 
-        user.softDelete(maskedNickname, null);
-    }
+    user.softDelete(maskedNickname, null);
+  }
 }

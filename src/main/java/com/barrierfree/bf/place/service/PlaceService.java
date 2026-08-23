@@ -1,14 +1,14 @@
 package com.barrierfree.bf.place.service;
 
-import com.barrierfree.bf.global.exception.CustomException;
-import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.global.enums.FacilityType;
 import com.barrierfree.bf.global.enums.MobilityType;
+import com.barrierfree.bf.global.exception.CustomException;
+import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.place.domain.PlaceCategory;
 import com.barrierfree.bf.place.dto.GoogleAutocompleteResponseDto;
 import com.barrierfree.bf.place.dto.GooglePlaceResponseDto;
-import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.PlaceAutocompleteResponse;
+import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchResponse;
 import com.barrierfree.bf.place.dto.PublicBarrierFreeInfo;
 import com.barrierfree.bf.place.dto.PublicBarrierFreePlace;
@@ -174,7 +174,8 @@ public class PlaceService {
         place.getWebsiteUri(),
         openingHours == null ? null : openingHours.getOpenNow(),
         reviewCount,
-        merge(accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
+        merge(
+            accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
             publicInfo.ramp()),
         merge(
             accessibility == null ? null : accessibility.getWheelchairAccessibleParking(),
@@ -221,7 +222,8 @@ public class PlaceService {
             .onStatus(
                 HttpStatusCode::isError,
                 response -> {
-                  log.error("Google Places Photo metadata failed. status={}", response.statusCode());
+                  log.error(
+                      "Google Places Photo metadata failed. status={}", response.statusCode());
                   return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
                 })
             .bodyToMono(JsonNode.class)
@@ -281,7 +283,8 @@ public class PlaceService {
     String nextRequestPageToken = pageToken;
 
     if (pageToken == null || pageToken.isBlank()) {
-      for (String candidateQuery : buildCandidateQueries(keyword, categoryValue, lat, lng, radius)) {
+      for (String candidateQuery :
+          buildCandidateQueries(keyword, categoryValue, lat, lng, radius)) {
         if (places.size() >= normalizedPageSize) {
           break;
         }
@@ -303,7 +306,7 @@ public class PlaceService {
         }
 
         if (candidatePlaces.isEmpty()) {
-        for (PlaceSearchResponse.PlaceSummary summary :
+          for (PlaceSearchResponse.PlaceSummary summary :
               searchGoogleExactCandidate(
                   candidateQuery,
                   category,
@@ -344,12 +347,15 @@ public class PlaceService {
 
       googleResponse = requestGoogleTextSearch(requestBody);
 
-        if (googleResponse != null && googleResponse.getPlaces() != null) {
-          List<PlaceSearchResponse.PlaceSummary> pagePlaces =
-              googleResponse.getPlaces().stream()
-                  .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache))
-                  .filter(place -> isWithinSearchArea(place, lat, lng, radius))
-                  .toList();
+      if (googleResponse != null && googleResponse.getPlaces() != null) {
+        List<PlaceSearchResponse.PlaceSummary> pagePlaces =
+            googleResponse.getPlaces().stream()
+                .map(
+                    place ->
+                        toPlaceSummary(
+                            place, category, accessibilityFilterRequested, publicInfoCache))
+                .filter(place -> isWithinSearchArea(place, lat, lng, radius))
+                .toList();
 
         pagePlaces.stream()
             .limit(Math.max(0, normalizedPageSize - fallbackPlaces.size()))
@@ -517,7 +523,8 @@ public class PlaceService {
     }
 
     return googleResponse.getPlaces().stream()
-        .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache))
+        .map(
+            place -> toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache))
         .toList();
   }
 
@@ -533,11 +540,8 @@ public class PlaceService {
     }
   }
 
-  private boolean shouldScanNextPage(
-      int resultCount, int pageSize, String nextPageToken) {
-    return resultCount < pageSize
-        && nextPageToken != null
-        && !nextPageToken.isBlank();
+  private boolean shouldScanNextPage(int resultCount, int pageSize, String nextPageToken) {
+    return resultCount < pageSize && nextPageToken != null && !nextPageToken.isBlank();
   }
 
   private boolean hasAccessibilityFilter(
@@ -690,7 +694,8 @@ public class PlaceService {
         category,
         category.getLabel(),
         openingHours == null ? null : openingHours.getOpenNow(),
-        merge(accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
+        merge(
+            accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
             publicInfo.ramp()),
         merge(
             accessibility == null ? null : accessibility.getWheelchairAccessibleParking(),
@@ -717,9 +722,7 @@ public class PlaceService {
   }
 
   private PlaceSearchResponse.PlaceSummary toPlaceSummary(
-      PublicBarrierFreePlace place,
-      PlaceCategory category,
-      boolean accessibilityFilterRequested) {
+      PublicBarrierFreePlace place, PlaceCategory category, boolean accessibilityFilterRequested) {
     PublicBarrierFreeInfo publicInfo = place.barrierFreeInfo();
 
     return new PlaceSearchResponse.PlaceSummary(
@@ -794,7 +797,8 @@ public class PlaceService {
     if (cacheKey.isBlank()) {
       return PublicBarrierFreeInfo.empty();
     }
-    return publicInfoCache.computeIfAbsent(cacheKey, key -> tourBarrierFreeService.findByPlaceName(name));
+    return publicInfoCache.computeIfAbsent(
+        cacheKey, key -> tourBarrierFreeService.findByPlaceName(name));
   }
 
   private String resolveAccessibilityDataSource(

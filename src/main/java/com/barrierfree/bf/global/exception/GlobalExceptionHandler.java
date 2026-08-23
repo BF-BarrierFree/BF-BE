@@ -39,10 +39,7 @@ public class GlobalExceptionHandler {
         .body(ApiResponse.error(errorCode.getCode(), errorMessage));
   }
 
-  /**
-   * 데이터베이스 제약 조건 위반 시 처리 (unique constraint 등)
-   * 닉네임 중복 등 트랜잭션 커밋 시점에 발생하는 제약 조건 위반을 처리합니다.
-   */
+  /** 데이터베이스 제약 조건 위반 시 처리 (unique constraint 등) 닉네임 중복 등 트랜잭션 커밋 시점에 발생하는 제약 조건 위반을 처리합니다. */
   @ExceptionHandler(DataIntegrityViolationException.class)
   protected ResponseEntity<ApiResponse<?>> handleDataIntegrityViolationException(
       DataIntegrityViolationException e) {

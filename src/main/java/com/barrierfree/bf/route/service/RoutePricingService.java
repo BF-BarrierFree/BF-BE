@@ -22,7 +22,8 @@ public class RoutePricingService {
         region.note());
   }
 
-  public VehicleRouteResponse.FareEstimate estimateAccessibleTaxi(double distanceMeters, Region region) {
+  public VehicleRouteResponse.FareEstimate estimateAccessibleTaxi(
+      double distanceMeters, Region region) {
     int estimatedFare =
         estimateFare(
             distanceMeters,
@@ -40,30 +41,138 @@ public class RoutePricingService {
 
   public Region classify(double lat, double lng) {
     if (inSeoul(lat, lng)) {
-      return new Region("SEOUL", "Seoul", 4800, 4800, 1600, 132, 100, 120, 15, 30, "PUBLIC_AND_PRIVATE", "Seoul distance-based estimate");
+      return new Region(
+          "SEOUL",
+          "Seoul",
+          4800,
+          4800,
+          1600,
+          132,
+          100,
+          120,
+          15,
+          30,
+          "PUBLIC_AND_PRIVATE",
+          "Seoul distance-based estimate");
     }
     if (inIncheon(lat, lng)) {
-      return new Region("INCHEON", "Incheon", 4300, 4800, 1600, 134, 100, 120, 20, 35, "PUBLIC_AND_PRIVATE", "Incheon distance-based estimate");
+      return new Region(
+          "INCHEON",
+          "Incheon",
+          4300,
+          4800,
+          1600,
+          134,
+          100,
+          120,
+          20,
+          35,
+          "PUBLIC_AND_PRIVATE",
+          "Incheon distance-based estimate");
     }
     if (inBusan(lat, lng)) {
-      return new Region("BUSAN", "Busan", 4500, 5000, 1600, 135, 100, 125, 20, 35, "PUBLIC_AND_PRIVATE", "Busan distance-based estimate");
+      return new Region(
+          "BUSAN",
+          "Busan",
+          4500,
+          5000,
+          1600,
+          135,
+          100,
+          125,
+          20,
+          35,
+          "PUBLIC_AND_PRIVATE",
+          "Busan distance-based estimate");
     }
     if (inDaegu(lat, lng)) {
-      return new Region("DAEGU", "Daegu", 4300, 4700, 1600, 133, 100, 120, 20, 35, "PUBLIC_AND_PRIVATE", "Daegu distance-based estimate");
+      return new Region(
+          "DAEGU",
+          "Daegu",
+          4300,
+          4700,
+          1600,
+          133,
+          100,
+          120,
+          20,
+          35,
+          "PUBLIC_AND_PRIVATE",
+          "Daegu distance-based estimate");
     }
     if (inDaejeon(lat, lng)) {
-      return new Region("DAEJEON", "Daejeon", 4300, 4700, 1600, 133, 100, 120, 20, 35, "PUBLIC_AND_PRIVATE", "Daejeon distance-based estimate");
+      return new Region(
+          "DAEJEON",
+          "Daejeon",
+          4300,
+          4700,
+          1600,
+          133,
+          100,
+          120,
+          20,
+          35,
+          "PUBLIC_AND_PRIVATE",
+          "Daejeon distance-based estimate");
     }
     if (inGwangju(lat, lng)) {
-      return new Region("GWANGJU", "Gwangju", 4300, 4700, 1600, 133, 100, 120, 20, 35, "PUBLIC_AND_PRIVATE", "Gwangju distance-based estimate");
+      return new Region(
+          "GWANGJU",
+          "Gwangju",
+          4300,
+          4700,
+          1600,
+          133,
+          100,
+          120,
+          20,
+          35,
+          "PUBLIC_AND_PRIVATE",
+          "Gwangju distance-based estimate");
     }
     if (inUlsan(lat, lng)) {
-      return new Region("ULSAN", "Ulsan", 4500, 5000, 1600, 135, 100, 125, 20, 35, "PUBLIC_AND_PRIVATE", "Ulsan distance-based estimate");
+      return new Region(
+          "ULSAN",
+          "Ulsan",
+          4500,
+          5000,
+          1600,
+          135,
+          100,
+          125,
+          20,
+          35,
+          "PUBLIC_AND_PRIVATE",
+          "Ulsan distance-based estimate");
     }
     if (inJeju(lat, lng)) {
-      return new Region("JEJU", "Jeju", 4300, 4800, 1600, 135, 100, 120, 25, 40, "PUBLIC_AND_PRIVATE", "Jeju distance-based estimate");
+      return new Region(
+          "JEJU",
+          "Jeju",
+          4300,
+          4800,
+          1600,
+          135,
+          100,
+          120,
+          25,
+          40,
+          "PUBLIC_AND_PRIVATE",
+          "Jeju distance-based estimate");
     }
-    return new Region("OTHER", "Other", 4000, 4500, 1600, 140, 100, 115, 25, 45, "PUBLIC_AND_PRIVATE", "Nationwide average estimate");
+    return new Region(
+        "OTHER",
+        "Other",
+        4000,
+        4500,
+        1600,
+        140,
+        100,
+        115,
+        25,
+        45,
+        "PUBLIC_AND_PRIVATE",
+        "Nationwide average estimate");
   }
 
   private int estimateFare(
