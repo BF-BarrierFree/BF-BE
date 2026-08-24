@@ -27,7 +27,7 @@ public class PlaceTestService {
   private final WebClient webClient;
 
   private static final String BASE_FIELDS =
-      "id,displayName,formattedAddress,location,reviews,editorialSummary,generativeSummary";
+      "id,displayName,formattedAddress,location,types,reviews,editorialSummary,generativeSummary";
   private static final String ACCESSIBILITY_FIELDS = ",accessibilityOptions";
   // 3. 부가 정보 필드 (전화번호, 웹사이트, 반려견, 주차, 영업시간, 사진)
   private static final String EXTRA_INFO_FIELDS =

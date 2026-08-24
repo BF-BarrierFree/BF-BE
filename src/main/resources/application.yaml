@@ -9,12 +9,18 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update # 배포 시 validate 필수
     properties:
       hibernate:
         show_sql: true # 배포 시 false로 바꿀 것
         format_sql: true # 배포 시 false로 바꿀 것
         use_sql_comments: true # 배포 시 false로 바꿀 것
+
+  # --- 파일 업로드(Multipart) 용량 제한 설정 ---
+  servlet:
+    multipart:
+      max-file-size: 20MB       # 파일 하나당 최대 허용 크기 (리뷰용 고화질 사진 대비)
+      max-request-size: 100MB    # 한 번의 요청에 포함될 수 있는 전체 파일의 최대 크기 (다중 이미지 업로드 대비)
 
 app:
   url: ${APP_URL:http://localhost:8080}

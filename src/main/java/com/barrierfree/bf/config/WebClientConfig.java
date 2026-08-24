@@ -15,7 +15,7 @@ import reactor.netty.http.client.HttpClient;
 @Configuration
 public class WebClientConfig {
 
-  /** 비동기 HTTP 통신을 위한 WebClient 빈(Bean) 등록 서비스 계층(Service)에서 주입받아 구글 API 등을 호출할 때 사용합니다. */
+  /** 비동기 HTTP 통신을 위한 기본 WebClient 빈(Bean) 등록 서비스 계층(Service)에서 주입받아 구글 API 등을 호출할 때 사용합니다. */
   @Bean
   public WebClient webClient() {
     HttpClient httpClient =
@@ -39,11 +39,11 @@ public class WebClientConfig {
     HttpClient httpClient =
         HttpClient.create()
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
-            .responseTimeout(Duration.ofSeconds(10))
+            .responseTimeout(Duration.ofSeconds(15)) // 공공데이터 응답 지연 대비 15초로 증가
             .doOnConnected(
                 conn ->
-                    conn.addHandlerLast(new ReadTimeoutHandler(10, TimeUnit.SECONDS))
-                        .addHandlerLast(new WriteTimeoutHandler(10, TimeUnit.SECONDS)));
+                    conn.addHandlerLast(new ReadTimeoutHandler(15, TimeUnit.SECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(15, TimeUnit.SECONDS)));
 
     DefaultUriBuilderFactory factory = new DefaultUriBuilderFactory();
     // 공공데이터포털 고질적 에러(SERVICE_KEY_IS_NOT_REGISTERED_ERROR) 방지 설정
@@ -53,5 +53,20 @@ public class WebClientConfig {
         .uriBuilderFactory(factory)
         .clientConnector(new ReactorClientHttpConnector(httpClient))
         .build();
+  }
+
+  /** 외부 LLM (OpenRouter) API 호출 전용 WebClient 빈(Bean) LLM 생성 응답은 시간이 더 걸릴 수 있으므로 타임아웃을 넉넉히 설정합니다. */
+  @Bean
+  public WebClient openRouterWebClient() {
+    HttpClient httpClient =
+        HttpClient.create()
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+            .responseTimeout(Duration.ofSeconds(15)) // 느린 무료 모델 호출로 배치가 장시간 멈추지 않도록 제한
+            .doOnConnected(
+                conn ->
+                    conn.addHandlerLast(new ReadTimeoutHandler(15, TimeUnit.SECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(15, TimeUnit.SECONDS)));
+
+    return WebClient.builder().clientConnector(new ReactorClientHttpConnector(httpClient)).build();
   }
 }

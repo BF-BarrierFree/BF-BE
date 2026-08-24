@@ -5,6 +5,7 @@ import com.barrierfree.bf.route.dto.WheelchairRouteResponse;
 import com.barrierfree.bf.route.service.KakaoMobilityService;
 import com.barrierfree.bf.route.service.OdsayRouteService;
 import com.barrierfree.bf.route.service.OrsRouteService;
+import com.barrierfree.bf.route.service.RouteSearchHistoryService;
 import com.barrierfree.bf.route.service.TagoRouteService;
 import com.barrierfree.bf.route.service.KakaoMobilityService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/routes")
 @RequiredArgsConstructor
+@Tag(name = "Route", description = "경로 탐색 API")
 public class RouteController {
 
     private final OrsRouteService orsRouteService;

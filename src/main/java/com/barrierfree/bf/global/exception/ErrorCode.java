@@ -12,6 +12,16 @@ public enum ErrorCode {
   INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "G001", "잘못된 입력값입니다."),
   INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "G002", "서버 내부 오류가 발생했습니다."),
 
+  // --- 유저 및 온보딩 관련 에러 (User) ---
+  USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자 정보를 찾을 수 없습니다."),
+  NICKNAME_DUPLICATED(HttpStatus.CONFLICT, "U002", "이미 사용 중인 닉네임입니다."),
+  INVALID_NICKNAME(HttpStatus.BAD_REQUEST, "U003", "닉네임 형식이 올바르지 않습니다. (15자 이내)"),
+  REQUIRED_TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "U004", "필수 약관에 모두 동의해야 합니다."),
+  ONBOARDING_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "U005", "이미 온보딩이 완료된 사용자입니다."),
+
+  // --- 공지사항 관련 에러 (Notice) ---
+  NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "공지사항을 찾을 수 없습니다."),
+
   // --- 무장애 시설 관련 에러 (Facility) ---
   FACILITY_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "해당 시설을 찾을 수 없습니다."),
 

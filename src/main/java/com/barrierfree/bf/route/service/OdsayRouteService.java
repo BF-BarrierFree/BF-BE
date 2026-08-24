@@ -2,6 +2,14 @@ package com.barrierfree.bf.route.service;
 
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
+import com.barrierfree.bf.route.dto.TransitRouteResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

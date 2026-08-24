@@ -6,7 +6,10 @@ import java.util.List;
 
 /** 프론트엔드(FE)에 최종적으로 반환할 가벼운 응답 DTO 무거운 원본 GeoJSON에서 Polyline을 그리기 위한 핵심 데이터만 추출합니다. */
 public record WheelchairRouteResponse(
-    double totalDistanceMeter, double totalDurationSecond, List<Point> pathCoordinates) {
+    double totalDistanceMeter,
+    double totalDurationSecond,
+    List<Point> pathCoordinates,
+    List<RouteSurfaceSegment> surfaceSegments) {
   /** 프론트엔드용 맵핑을 위한 내부 레코드 (경도, 위도, 고도) */
   public record Point(double lng, double lat, double elevation) {}
 
@@ -42,10 +45,49 @@ public record WheelchairRouteResponse(
                   if (coord == null || coord.size() < 2) {
                     throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
                   }
-                  return new Point(coord.get(0), coord.get(1), coord.size() > 2 ? coord.get(2) : 0.0);
+                  return new Point(
+                      coord.get(0), coord.get(1), coord.size() > 2 ? coord.get(2) : 0.0);
                 })
             .toList();
 
-    return new WheelchairRouteResponse(summary.distance(), summary.duration(), points);
+    return new WheelchairRouteResponse(
+        summary.distance(), summary.duration(), points, extractSurfaceSegments(firstFeature));
+  }
+
+  private static List<RouteSurfaceSegment> extractSurfaceSegments(
+      OrsGeoJsonResponse.Feature feature) {
+    if (feature == null
+        || feature.properties() == null
+        || feature.properties().extras() == null
+        || feature.properties().extras().surface() == null
+        || feature.properties().extras().surface().values() == null) {
+      return List.of();
+    }
+
+    return feature.properties().extras().surface().values().stream()
+        .filter(value -> value != null && value.size() >= 3)
+        .map(
+            value ->
+                new RouteSurfaceSegment(
+                    value.get(0), value.get(1), value.get(2), surfaceLabel(value.get(2))))
+        .toList();
+  }
+
+  private static String surfaceLabel(Integer surfaceCode) {
+    if (surfaceCode == null) {
+      return "UNKNOWN";
+    }
+    return switch (surfaceCode) {
+      case 1 -> "PAVED";
+      case 2 -> "UNPAVED";
+      case 3 -> "ASPHALT";
+      case 4 -> "CONCRETE";
+      case 5 -> "COBBLESTONE";
+      case 8 -> "COMPACTED_GRAVEL";
+      case 10 -> "GRAVEL";
+      case 11 -> "DIRT";
+      case 14 -> "PAVING_STONES";
+      default -> "UNKNOWN";
+    };
   }
 }
