@@ -43,7 +43,6 @@ tago:
   api:
     base-url: https://apis.data.go.kr/1613000/ArvlInfoInqireService
     station-base-url: https://apis.data.go.kr/1613000/BusSttnInfoInqireService
-    taxi-center-base-url: https://apis.data.go.kr/B551982/tsdo_v2
     service-key: ${DATA_GO_KR_API_KEY}
 
 odsay:
@@ -51,39 +50,12 @@ odsay:
     base-url: https://api.odsay.com
     api-key: ${ODSAY_API_KEY}
 
-# --- 카카오 로그인 및 JWT 설정 ---
-oauth2:
-  kakao:
-    client-id: ${KAKAO_CLIENT_ID}
-    client-secret: ${KAKAO_CLIENT_SECRET}
-    redirect-uri: ${KAKAO_REDIRECT_URI}
-    token-uri: https://kauth.kakao.com/oauth/token
-    user-info-uri: https://kapi.kakao.com/v2/user/me
+kakao:
+  mobility:
+    base-url: https://apis-navi.kakaomobility.com
+    api-key: ${KAKAO_MOBILITY_API_KEY}
 
-jwt:
-  secret: ${JWT_SECRET}
-  access-expiration: ${JWT_ACCESS_EXPIRATION}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
-
-# --- Cloudflare R2 설정 ---
-cloud:
-  cloudflare:
-    r2:
-      credentials:
-        access-key: ${R2_ACCESS_KEY}
-        secret-key: ${R2_SECRET_KEY}
-      bucket: ${R2_BUCKET:bf-images}
-      endpoint: ${R2_ENDPOINT}
-      region: auto
-      public-url: ${R2_PUBLIC_URL}
-
-# --- Embedding용 Jina API 설정 ---
-jina:
-  api-key: ${JINA_API_KEY}
-
-# --- LLM API 연동 (OpenRouter, 택시 폼 스키마/요금 예상 전용) ---
-openrouter:
+mobility:
   api:
-    base-url: https://openrouter.ai/api/v1/chat/completions
-    api-key: ${OPENROUTER_API_KEY}
-    model: ${OPENROUTER_MODEL:nvidia/nemotron-3-ultra-550b-a55b:free}
+    base-url: https://apis.data.go.kr/B551982/tsdo_v2
+    service-key: ${DATA_GO_KR_API_KEY}

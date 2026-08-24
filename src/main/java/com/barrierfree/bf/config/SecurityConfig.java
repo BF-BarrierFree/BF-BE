@@ -92,8 +92,9 @@ public class SecurityConfig {
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/api/v1/test/places/**",
-                        "/login/**",
-                        "/api/v1/routes/**")
+                        "/api/v1/routes/**", // 로그인 없어도 가능한 기능이라 열어둠.
+                        "/api/v1/test/mobility/**" // 교통약자 이동지원 테스트 API
+                        )
                     .permitAll()
                     .anyRequest()
                     .authenticated());
