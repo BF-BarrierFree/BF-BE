@@ -74,7 +74,12 @@ public class SecurityConfig {
                     // 로그아웃은 인증 필요 (더 구체적인 규칙이므로 /api/v1/auth/** 보다 먼저 배치)
                     .requestMatchers("/api/v1/auth/logout")
                     .authenticated()
-                    .requestMatchers(HttpMethod.GET, "/api/v1/places/**", "/api/v1/reviews/**")
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/v1/places/**",
+                        "/api/v1/reviews/**",
+                        "/api/v1/notices",
+                        "/api/v1/notices/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/notices", "/api/v1/notices/**")
                     .hasAuthority("ROLE_ADMIN")
