@@ -35,3 +35,12 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# Environments
+.env
+.env.*
+!.env.example
+
+# Google Cloud Service Account
+bf-vertex-ai-key.json
+service-account-key.json
