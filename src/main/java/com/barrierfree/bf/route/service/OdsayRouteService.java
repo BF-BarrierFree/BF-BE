@@ -5,11 +5,11 @@ import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.route.dto.TransitRouteResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.ArrayList;
-import java.util.List;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,213 +23,95 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class OdsayRouteService {
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
-  private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
+    private final WebClient webClient; // 일반 WebClient 사용 (Config에서 만든 기본 Bean)
 
-  private final WebClient webClient;
+    @Value("${odsay.api.base-url}")
+    private String baseUrl;
 
-  @Value("${odsay.api.base-url}")
-  private String baseUrl;
+    @Value("${odsay.api.api-key}")
+    private String apiKey;
 
-  @Value("${odsay.api.api-key}")
-  private String apiKey;
+    /**
+     * [테스트용] 공공데이터포털(ODsay) 연동 테스트
+     * 1번(출발시간), 4번(교통수단 분리), 7번(최적경로/정렬옵션) 검증을 위해 파라미터 확장
+     */
+    public String testOdsayTransitRoute(
+            double startLng,
+            double startLat,
+            double endLng,
+            double endLat,
+            Integer searchPathType,
+            String time,
+            Integer opt) {
 
-  public TransitRouteResponse getTransitRoute(
-      double startLng, double startLat, double endLng, double endLat) {
-    String rawResponse = requestTransitRoute(startLng, startLat, endLng, endLat);
-    return parseTransitRoute(rawResponse);
-  }
+        log.info(
+                "ODsay 대중교통 길찾기 연동 테스트 시작 - 출발지: {},{}, 도착지: {},{}, Type: {}, Time: {}, OPT: {}",
+                startLng, startLat, endLng, endLat, searchPathType, time, opt);
 
-  public String testOdsayTransitRoute(
-      double startLng, double startLat, double endLng, double endLat) {
-    return requestTransitRoute(startLng, startLat, endLng, endLat);
-  }
+        String rawResponse =
+                webClient
+                        .get()
+                        .uri(uriBuilder -> {
+                            uriBuilder
+                                    .path("/v1/api/searchPubTransPathT")
+                                    .queryParam("apiKey", apiKey)
+                                    .queryParam("SX", startLng)
+                                    .queryParam("SY", startLat)
+                                    .queryParam("EX", endLng)
+                                    .queryParam("EY", endLat);
 
-  private String requestTransitRoute(
-      double startLng, double startLat, double endLng, double endLat) {
-    log.info(
-        "ODsay transit route lookup start. start={},{} end={},{}",
-        startLng,
-        startLat,
-        endLng,
-        endLat);
+                            // [추가] 4. 버스/지하철 분리 파라미터 (0: 모두, 1: 지하철, 2: 버스)
+                            if (searchPathType != null) {
+                                uriBuilder.queryParam("SearchPathType", searchPathType);
+                            }
 
-    String requestUrl =
-        baseUrl
-            + "/v1/api/searchPubTransPathT"
-            + "?apiKey="
-            + apiKey
-            + "&SX="
-            + startLng
-            + "&SY="
-            + startLat
-            + "&EX="
-            + endLng
-            + "&EY="
-            + endLat
-            + "&OPT=0"
-            + "&SearchType=0"
-            + "&SearchPathType=0";
+                            // [추가] 1. 출발 시간 지정 파라미터 (ODsay 스펙상 시간 지정이 가능한지 테스트하기 위함)
+                            if (time != null && !time.isEmpty()) {
+                                uriBuilder.queryParam("time", time);
+                            }
 
-    String rawResponse =
-        webClient
-            .get()
-            .uri(requestUrl)
-            .retrieve()
-            .onStatus(
-                HttpStatusCode::is4xxClientError,
-                response ->
-                    response
+                            // [추가] 7. 경로 정렬 옵션 (0: 최적, 1: 최단시간, 2: 최소환승, 3: 최소도보)
+                            if (opt != null) {
+                                uriBuilder.queryParam("OPT", opt);
+                            }
+
+                            return uriBuilder.build();
+                        })
+                        .retrieve()
+                        .onStatus(
+                                HttpStatusCode::is4xxClientError,
+                                response ->
+                                        response.bodyToMono(String.class)
+                                                .flatMap(
+                                                        errorBody -> {
+                                                            log.error(
+                                                                    "ODsay 클라이언트 에러(4xx) 발생. Response: {}",
+                                                                    errorBody);
+                                                            return Mono.error(
+                                                                    new CustomException(
+                                                                            ErrorCode.ODSAY_API_FAILED));
+                                                        }))
+                        .onStatus(
+                                HttpStatusCode::is5xxServerError,
+                                response -> {
+                                    log.error("ODsay 외부 서버 에러(5xx) 발생.");
+                                    return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
+                                })
                         .bodyToMono(String.class)
-                        .flatMap(
-                            errorBody -> {
-                              log.error("ODsay client error. response={}", errorBody);
-                              return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
-                            }))
-            .onStatus(
-                HttpStatusCode::is5xxServerError,
-                response -> {
-                  log.error("ODsay server error.");
-                  return Mono.error(new CustomException(ErrorCode.ODSAY_API_FAILED));
-                })
-            .bodyToMono(String.class)
-            .onErrorMap(
-                throwable -> {
-                  log.error("ODsay request failed: {}", throwable.getMessage());
-                  return new CustomException(ErrorCode.ODSAY_API_FAILED);
-                })
-            .block();
+                        .onErrorMap(
+                                throwable -> {
+                                    log.error(
+                                            "ODsay API 호출 중 네트워크/타임아웃 에러 발생: {}",
+                                            throwable.getMessage());
+                                    return new CustomException(ErrorCode.ODSAY_API_FAILED);
+                                })
+                        .block();
 
-    if (rawResponse == null) {
-      throw new CustomException(ErrorCode.ODSAY_API_FAILED);
-    }
-
-    return rawResponse;
-  }
-
-  private TransitRouteResponse parseTransitRoute(String rawResponse) {
-    try {
-      JsonNode root = OBJECT_MAPPER.readTree(rawResponse);
-      JsonNode errorNode = root.path("error");
-      if (!errorNode.isMissingNode() && !errorNode.isNull() && !errorNode.isEmpty()) {
-        log.warn("ODsay returned error payload: {}", errorNode.toString());
-        throw new CustomException(ErrorCode.ODSAY_API_FAILED);
-      }
-
-      JsonNode pathNodes = root.at("/result/path");
-      if (pathNodes.isMissingNode() || pathNodes.isNull()) {
-        throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
-      }
-
-      List<TransitRouteResponse.RouteOption> routes = new ArrayList<>();
-      if (pathNodes.isArray()) {
-        for (JsonNode pathNode : pathNodes) {
-          TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNode);
-          if (routeOption != null) {
-            routes.add(routeOption);
-          }
+        if (rawResponse == null) {
+            log.error("ODsay 응답이 null 입니다.");
+            throw new CustomException(ErrorCode.ODSAY_API_FAILED);
         }
-      } else {
-        TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNodes);
-        if (routeOption != null) {
-          routes.add(routeOption);
-        }
-      }
 
-      if (routes.isEmpty()) {
-        throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
-      }
-
-      TransitRouteResponse.RouteOption bestRoute = routes.get(0);
-      return new TransitRouteResponse(
-          routes.size(),
-          bestRoute.totalTimeMinute(),
-          bestRoute.totalDistanceMeter(),
-          routes);
-    } catch (CustomException e) {
-      throw e;
-    } catch (Exception e) {
-      log.warn("ODsay transit response parsing failed.", e);
-      throw new CustomException(ErrorCode.ODSAY_API_FAILED);
+        return rawResponse;
     }
-  }
-
-  private TransitRouteResponse.RouteOption parseRouteOption(JsonNode pathNode) {
-    if (pathNode == null || pathNode.isMissingNode() || pathNode.isNull()) {
-      return null;
-    }
-
-    JsonNode info = pathNode.path("info");
-    List<TransitRouteResponse.Segment> segments = new ArrayList<>();
-    JsonNode subPaths = pathNode.path("subPath");
-    if (subPaths.isArray()) {
-      for (JsonNode subPath : subPaths) {
-        segments.add(parseSegment(subPath));
-      }
-    }
-
-    return new TransitRouteResponse.RouteOption(
-        intValue(pathNode, "pathType"),
-        intValue(info, "totalTime"),
-        intValue(info, "totalDistance"),
-        intValue(info, "payment"),
-        intValue(info, "transferCount"),
-        formatArrivalTime(intValue(info, "totalTime")),
-        segments);
-  }
-
-  private TransitRouteResponse.Segment parseSegment(JsonNode subPath) {
-    if (subPath == null || subPath.isMissingNode() || subPath.isNull()) {
-      return new TransitRouteResponse.Segment(null, null, null, null, null, List.of());
-    }
-
-    List<String> laneNames = new ArrayList<>();
-    JsonNode lanes = subPath.path("lane");
-    if (lanes.isArray()) {
-      for (JsonNode lane : lanes) {
-        addLaneName(laneNames, lane);
-      }
-    } else {
-      addLaneName(laneNames, lanes);
-    }
-
-    return new TransitRouteResponse.Segment(
-        intValue(subPath, "trafficType"),
-        textValue(subPath, "startName"),
-        textValue(subPath, "endName"),
-        intValue(subPath, "distance"),
-        intValue(subPath, "sectionTime"),
-        laneNames);
-  }
-
-  private void addLaneName(List<String> laneNames, JsonNode lane) {
-    String name = textValue(lane, "name");
-    if (name != null && !name.isBlank()) {
-      laneNames.add(name);
-    }
-  }
-
-  private Integer intValue(JsonNode node, String fieldName) {
-    if (node == null || node.isMissingNode() || node.isNull()) {
-      return null;
-    }
-    JsonNode field = node.get(fieldName);
-    return field == null || field.isNull() ? null : field.asInt();
-  }
-
-  private String textValue(JsonNode node, String fieldName) {
-    if (node == null || node.isMissingNode() || node.isNull()) {
-      return null;
-    }
-    JsonNode field = node.get(fieldName);
-    return field == null || field.isNull() ? null : field.asText();
-  }
-
-  private String formatArrivalTime(Integer totalTimeMinute) {
-    if (totalTimeMinute == null) {
-      return null;
-    }
-    return ZonedDateTime.now(KOREA_ZONE).plusMinutes(totalTimeMinute).format(TIME_FORMATTER);
-  }
 }

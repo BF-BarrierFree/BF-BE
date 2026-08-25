@@ -7,9 +7,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TaxiReservationRepository extends JpaRepository<TaxiReservation, Long> {
-    
-    /**
-     * 특정 사용자의 예약 이력 조회
-     */
-    List<TaxiReservation> findByUserIdOrderByCreatedAtDesc(Long userId);
+
+  /** 특정 사용자의 예약 이력 조회 */
+  List<TaxiReservation> findByUserIdOrderByCreatedAtDesc(Long userId);
 }

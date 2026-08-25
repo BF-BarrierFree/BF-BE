@@ -5,12 +5,12 @@ import lombok.Getter;
 
 @Getter
 public class JinaEmbeddingResponse {
-    private String model;
-    private List<EmbeddingData> data;
+  private String model;
+  private List<EmbeddingData> data;
 
-    @Getter
-    public static class EmbeddingData {
-        private int index;
-        private float[] embedding;
-    }
+  @Getter
+  public static class EmbeddingData {
+    private int index;
+    private float[] embedding;
+  }
 }

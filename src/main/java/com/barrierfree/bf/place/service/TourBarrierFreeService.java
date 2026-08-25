@@ -4,8 +4,8 @@ import com.barrierfree.bf.place.dto.PublicBarrierFreeInfo;
 import com.barrierfree.bf.place.dto.PublicBarrierFreePlace;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -110,9 +110,12 @@ public class TourBarrierFreeService {
             log.debug("TourAPI barrier-free candidate lookup failed", e.getCause());
           }
 
-          while (inFlight < parallelism && candidateIndex < candidates.size() && places.size() < limit) {
+          while (inFlight < parallelism
+              && candidateIndex < candidates.size()
+              && places.size() < limit) {
             JsonNode candidate = candidates.get(candidateIndex++);
-            submittedTasks.add(completionService.submit(() -> addPublicPlaceIfAvailable(candidate)));
+            submittedTasks.add(
+                completionService.submit(() -> addPublicPlaceIfAvailable(candidate)));
             inFlight++;
           }
         }
@@ -139,9 +142,8 @@ public class TourBarrierFreeService {
       JsonNode commonDetail = fetchCommonDetail(contentId);
       JsonNode commonItem = firstItem(commonDetail);
       JsonNode barrierFreeDetail = fetchBarrierFreeDetail(contentId);
-      JsonNode barrierItem = barrierFreeDetail == null || barrierFreeDetail.isMissingNode()
-          ? null
-          : barrierFreeDetail;
+      JsonNode barrierItem =
+          barrierFreeDetail == null || barrierFreeDetail.isMissingNode() ? null : barrierFreeDetail;
 
       if (commonItem == null && barrierItem == null) {
         return null;

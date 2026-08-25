@@ -7,16 +7,14 @@ import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
-/**
- * 유저 프로필 조회 API 응답을 위한 DTO
- */
+/** 유저 프로필 조회 API 응답을 위한 DTO */
 @Getter
 @Builder
 public class UserProfileResponse {
 
-    private String nickname;
-    private String profileImageUrl;
-    private Role role;
-    private List<MobilityType> mobilities;
-    private List<FacilityType> facilities;
+  private String nickname;
+  private String profileImageUrl;
+  private Role role;
+  private List<MobilityType> mobilities;
+  private List<FacilityType> facilities;
 }

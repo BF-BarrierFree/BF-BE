@@ -11,11 +11,7 @@ public class RouteSearchHistoryService {
   private final RouteSearchHistoryJdbcRepository repository;
 
   public void save(
-      String routeType,
-      Double startLng,
-      Double startLat,
-      Double endLng,
-      Double endLat) {
+      String routeType, Double startLng, Double startLat, Double endLng, Double endLat) {
     repository.save(routeType, startLng, startLat, endLng, endLat);
   }
 }
