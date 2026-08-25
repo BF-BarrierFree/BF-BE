@@ -22,8 +22,17 @@ public enum ErrorCode {
   // --- 공지사항 관련 에러 (Notice) ---
   NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "공지사항을 찾을 수 없습니다."),
 
+  // --- 인증 관련 에러 (Auth/Kakao) ---
+  KAKAO_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A001", "카카오 로그인 처리에 실패했습니다."),
+  KAKAO_USER_INFO_FAILED(HttpStatus.BAD_GATEWAY, "A002", "카카오 사용자 정보를 가져오지 못했습니다."),
+  KAKAO_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "A003", "카카오 인증 서비스를 현재 사용할 수 없습니다."),
+
   // --- 무장애 시설 관련 에러 (Facility) ---
   FACILITY_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "해당 시설을 찾을 수 없습니다."),
+
+  // --- 이미지 관련 에러 (Image) ---
+  INVALID_IMAGE_FORMAT(HttpStatus.BAD_REQUEST, "I001", "지원하지 않는 이미지 형식입니다."),
+  IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "I002", "이미지 업로드에 실패했습니다."),
 
   // --- 외부 API 관련 에러 (Map) ---
   GOOGLE_MAP_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "M001", "구글맵 API 호출에 실패했습니다."),

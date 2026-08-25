@@ -155,7 +155,7 @@ public class MobilityTestService {
             .uri(uriBuilder -> uriBuilder
                 .path("/center_info_v2")
                 .queryParam("serviceKey", serviceKey)
-                .queryParam("pageNo", pageNo)
+                .queryParam("pageNo", 1)
                 .queryParam("numOfRows", numOfRows)
                 .queryParam("type", "json")
                 .build())
