@@ -21,6 +21,8 @@ spring:
     multipart:
       max-file-size: 20MB       # 파일 하나당 최대 허용 크기 (리뷰용 고화질 사진 대비)
       max-request-size: 100MB    # 한 번의 요청에 포함될 수 있는 전체 파일의 최대 크기 (다중 이미지 업로드 대비)
+      data-source-properties:
+        preparedStatementCacheQueries: 0 # Prepared Statement 캐싱 비활성화
 
 app:
   url: ${APP_URL:http://localhost:8080}
