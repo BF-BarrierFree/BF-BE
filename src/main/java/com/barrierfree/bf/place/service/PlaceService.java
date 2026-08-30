@@ -223,7 +223,7 @@ public class PlaceService {
     requestBody.put("regionCode", "KR");
     requestBody.put("pageSize", normalizedPageSize);
 
-    String includedType = category.getPrimaryGoogleType();
+    String includedType = resolveIncludedType(category);
     if (includedType != null) {
       requestBody.put("includedType", includedType);
     }
@@ -481,7 +481,7 @@ public class PlaceService {
     candidateRequestBody.put("languageCode", "ko");
     candidateRequestBody.put("regionCode", "KR");
     candidateRequestBody.put("pageSize", 5);
-    String includedType = category.getPrimaryGoogleType();
+    String includedType = resolveIncludedType(category);
     if (includedType != null) {
       candidateRequestBody.put("includedType", includedType);
     }
@@ -739,6 +739,13 @@ public class PlaceService {
         .build()
         .encode()
         .toUriString();
+  }
+
+  private String resolveIncludedType(PlaceCategory category) {
+    if (category == null || category == PlaceCategory.ETC || category == PlaceCategory.FOOD_CAFE) {
+      return null;
+    }
+    return category.getPrimaryGoogleType();
   }
 
   private String resolvePhotoUrl(String photoName, Integer maxWidthPx) {
