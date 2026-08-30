@@ -3,9 +3,11 @@ package com.barrierfree.bf.place.service;
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.place.domain.PlaceCategory;
+import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.SavedPlaceCreateRequest;
 import com.barrierfree.bf.place.dto.SavedPlaceListCreateRequest;
 import com.barrierfree.bf.place.dto.SavedPlaceListResponse;
+import com.barrierfree.bf.place.dto.SavedPlaceListUpdateRequest;
 import com.barrierfree.bf.place.dto.SavedPlaceResponse;
 import com.barrierfree.bf.place.entity.SavedPlace;
 import com.barrierfree.bf.place.entity.SavedPlaceList;
@@ -25,6 +27,7 @@ public class SavedPlaceService {
   private final SavedPlaceListRepository savedPlaceListRepository;
   private final SavedPlaceRepository savedPlaceRepository;
   private final UserRepository userRepository;
+  private final PlaceService placeService;
 
   @Value("${google.places.api-key}")
   private String googleApiKey;
@@ -46,6 +49,22 @@ public class SavedPlaceService {
         savedPlaceListRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
             .map(this::toListSummary)
             .toList());
+  }
+
+  @Transactional
+  public SavedPlaceListResponse.SavedPlaceListSummary updateList(
+      Long userId, Long listId, SavedPlaceListUpdateRequest request) {
+    SavedPlaceList placeList = findPlaceList(userId, listId);
+    placeList.updateName(normalizeRequiredText(request.name()));
+    return toListSummary(placeList);
+  }
+
+  @Transactional
+  public void deleteList(Long userId, Long listId) {
+    SavedPlaceList placeList = findPlaceList(userId, listId);
+    savedPlaceRepository.deleteAll(
+        savedPlaceRepository.findAllByPlaceListIdOrderByCreatedAtDesc(placeList.getId()));
+    savedPlaceListRepository.delete(placeList);
   }
 
   @Transactional
@@ -85,13 +104,46 @@ public class SavedPlaceService {
     return toPlaceSummary(savedPlaceRepository.save(savedPlace));
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public SavedPlaceResponse getSavedPlaces(Long userId, Long listId) {
     SavedPlaceList placeList = findPlaceList(userId, listId);
     return new SavedPlaceResponse(
         savedPlaceRepository.findAllByPlaceListIdOrderByCreatedAtDesc(placeList.getId()).stream()
+            .map(this::refreshSavedPlace)
+            .filter(savedPlace -> savedPlace != null)
             .map(this::toPlaceSummary)
             .toList());
+  }
+
+  @Transactional
+  public void removeSavedPlace(Long userId, Long listId, Long savedPlaceId) {
+    SavedPlaceList placeList = findPlaceList(userId, listId);
+    SavedPlace savedPlace =
+        savedPlaceRepository
+            .findByIdAndPlaceListId(savedPlaceId, placeList.getId())
+            .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
+    savedPlaceRepository.delete(savedPlace);
+  }
+
+  private SavedPlace refreshSavedPlace(SavedPlace savedPlace) {
+    try {
+      PlaceDetailResponse latest = placeService.getDetail(savedPlace.getPlaceId());
+      savedPlace.updateSnapshot(
+          latest.name(),
+          latest.category(),
+          latest.openNow(),
+          latest.address(),
+          latest.lat(),
+          latest.lng(),
+          normalizePhotoUrl(latest.photoUrl()));
+      return savedPlace;
+    } catch (CustomException exception) {
+      if (exception.getErrorCode() == ErrorCode.FACILITY_NOT_FOUND) {
+        savedPlaceRepository.delete(savedPlace);
+        return null;
+      }
+      return savedPlace;
+    }
   }
 
   private User findUser(Long userId) {

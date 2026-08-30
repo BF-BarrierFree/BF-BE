@@ -39,4 +39,8 @@ public class SavedPlaceList extends BaseEntity {
     this.user = user;
     this.name = name;
   }
+
+  public void updateName(String name) {
+    this.name = name;
+  }
 }
