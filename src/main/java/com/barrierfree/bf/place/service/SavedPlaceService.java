@@ -117,10 +117,9 @@ public class SavedPlaceService {
 
   @Transactional
   public void removeSavedPlace(Long userId, Long listId, Long savedPlaceId) {
-    SavedPlaceList placeList = findPlaceList(userId, listId);
     SavedPlace savedPlace =
         savedPlaceRepository
-            .findByIdAndPlaceListId(savedPlaceId, placeList.getId())
+            .findByIdAndPlaceListIdAndPlaceListUserId(savedPlaceId, listId, userId)
             .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE));
     savedPlaceRepository.delete(savedPlace);
   }

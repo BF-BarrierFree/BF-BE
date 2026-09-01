@@ -264,8 +264,8 @@ class SavedPlaceServiceTest {
     ReflectionTestUtils.setField(savedPlace, "id", 7L);
 
     when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
-    when(savedPlaceListRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(placeList));
-    when(savedPlaceRepository.findByIdAndPlaceListId(7L, 10L)).thenReturn(Optional.of(savedPlace));
+    when(savedPlaceRepository.findByIdAndPlaceListIdAndPlaceListUserId(7L, 10L, 1L))
+        .thenReturn(Optional.of(savedPlace));
 
     service.removeSavedPlace(1L, 10L, 7L);
 
