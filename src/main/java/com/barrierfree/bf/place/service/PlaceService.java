@@ -201,51 +201,6 @@ public class PlaceService {
         buildPhotoUrl(place));
   }
 
-  public ResponseEntity<byte[]> getPhoto(String photoName, Integer maxWidthPx) {
-    validatePhotoName(photoName);
-    int normalizedMaxWidthPx = normalizePhotoWidth(maxWidthPx);
-
-    String metadataUrl =
-        UriComponentsBuilder.fromUriString(
-                "https://places.googleapis.com/v1/" + photoName + "/media")
-            .queryParam("maxWidthPx", normalizedMaxWidthPx)
-            .queryParam("skipHttpRedirect", true)
-            .queryParam("key", googleApiKey)
-            .build()
-            .toUriString();
-
-    JsonNode photoMetadata =
-        webClient
-            .get()
-            .uri(metadataUrl)
-            .retrieve()
-            .onStatus(
-                HttpStatusCode::isError,
-                response -> {
-                  log.error(
-                      "Google Places Photo metadata failed. status={}", response.statusCode());
-                  return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
-                })
-            .bodyToMono(JsonNode.class)
-            .block();
-
-    String photoUri = photoMetadata == null ? null : photoMetadata.path("photoUri").asText(null);
-    if (photoUri == null || photoUri.isBlank()) {
-      throw new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
-    }
-
-    ResponseEntity<byte[]> imageResponse =
-        webClient.get().uri(photoUri).retrieve().toEntity(byte[].class).block();
-    if (imageResponse == null || imageResponse.getBody() == null) {
-      throw new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
-    }
-
-    MediaType contentType = imageResponse.getHeaders().getContentType();
-    return ResponseEntity.status(imageResponse.getStatusCode())
-        .contentType(contentType == null ? MediaType.IMAGE_JPEG : contentType)
-        .body(imageResponse.getBody());
-  }
-
   public PlaceSearchResponse search(
       String keyword,
       String categoryValue,
@@ -268,7 +223,7 @@ public class PlaceService {
     requestBody.put("regionCode", "KR");
     requestBody.put("pageSize", normalizedPageSize);
 
-    String includedType = category.getPrimaryGoogleType();
+    String includedType = resolveIncludedType(category);
     if (includedType != null) {
       requestBody.put("includedType", includedType);
     }
@@ -438,6 +393,21 @@ public class PlaceService {
         places, nextPageToken, nextPageToken != null && !nextPageToken.isBlank());
   }
 
+  public ResponseEntity<byte[]> getPhoto(String photoName, Integer maxWidthPx) {
+    String photoUri = resolvePhotoUrl(photoName, maxWidthPx);
+
+    ResponseEntity<byte[]> imageResponse =
+        webClient.get().uri(photoUri).retrieve().toEntity(byte[].class).block();
+    if (imageResponse == null || imageResponse.getBody() == null) {
+      throw new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
+    }
+
+    MediaType contentType = imageResponse.getHeaders().getContentType();
+    return ResponseEntity.status(imageResponse.getStatusCode())
+        .contentType(contentType == null ? MediaType.IMAGE_JPEG : contentType)
+        .body(imageResponse.getBody());
+  }
+
   private GooglePlaceResponseDto requestGoogleTextSearch(Map<String, Object> requestBody) {
     return webClient
         .post()
@@ -511,7 +481,7 @@ public class PlaceService {
     candidateRequestBody.put("languageCode", "ko");
     candidateRequestBody.put("regionCode", "KR");
     candidateRequestBody.put("pageSize", 5);
-    String includedType = category.getPrimaryGoogleType();
+    String includedType = resolveIncludedType(category);
     if (includedType != null) {
       candidateRequestBody.put("includedType", includedType);
     }
@@ -769,6 +739,46 @@ public class PlaceService {
         .build()
         .encode()
         .toUriString();
+  }
+
+  private String resolveIncludedType(PlaceCategory category) {
+    if (category == null || category == PlaceCategory.ETC || category == PlaceCategory.FOOD_CAFE) {
+      return null;
+    }
+    return category.getPrimaryGoogleType();
+  }
+
+  private String resolvePhotoUrl(String photoName, Integer maxWidthPx) {
+    validatePhotoName(photoName);
+    int normalizedMaxWidthPx = normalizePhotoWidth(maxWidthPx);
+
+    String metadataUrl =
+        UriComponentsBuilder.fromUriString("https://places.googleapis.com/v1/" + photoName + "/media")
+            .queryParam("maxWidthPx", normalizedMaxWidthPx)
+            .queryParam("skipHttpRedirect", true)
+            .queryParam("key", googleApiKey)
+            .build()
+            .toUriString();
+
+    JsonNode photoMetadata =
+        webClient
+            .get()
+            .uri(metadataUrl)
+            .retrieve()
+            .onStatus(
+                HttpStatusCode::isError,
+                response -> {
+                  log.error("Google Places Photo metadata failed. status={}", response.statusCode());
+                  return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
+                })
+            .bodyToMono(JsonNode.class)
+            .block();
+
+    String photoUri = photoMetadata == null ? null : photoMetadata.path("photoUri").asText(null);
+    if (photoUri == null || photoUri.isBlank()) {
+      throw new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
+    }
+    return photoUri;
   }
 
   private void validatePhotoName(String photoName) {
