@@ -16,6 +16,10 @@ spring:
         format_sql: false # 배포 시 false로 바꿀 것
         use_sql_comments: false # 배포 시 false로 바꿀 것
 
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: "0"
+
   # --- 파일 업로드(Multipart) 용량 제한 설정 ---
   servlet:
     multipart:
@@ -59,7 +63,7 @@ tago:
   api:
     base-url: https://apis.data.go.kr/1613000/ArvlInfoInqireService
     station-base-url: https://apis.data.go.kr/1613000/BusSttnInfoInqireService
-    taxi-center-base-url: https://apis.data.go.kr/B551982/tsdo
+    taxi-center-base-url: https://apis.data.go.kr/B551982/tsdo_v2
     service-key: ${DATA_GO_KR_API_KEY}
 
 odsay:

@@ -10,4 +10,6 @@ public interface SavedPlaceRepository extends JpaRepository<SavedPlace, Long> {
   List<SavedPlace> findAllByPlaceListIdOrderByCreatedAtDesc(Long placeListId);
 
   Optional<SavedPlace> findByPlaceListIdAndPlaceId(Long placeListId, String placeId);
+
+  Optional<SavedPlace> findByIdAndPlaceListUserId(Long id, Long userId);
 }
