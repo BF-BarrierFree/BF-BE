@@ -31,7 +31,8 @@ class SavedPlaceServiceTest {
 
   private final SavedPlaceListRepository savedPlaceListRepository =
       Mockito.mock(SavedPlaceListRepository.class);
-  private final SavedPlaceRepository savedPlaceRepository = Mockito.mock(SavedPlaceRepository.class);
+  private final SavedPlaceRepository savedPlaceRepository =
+      Mockito.mock(SavedPlaceRepository.class);
   private final UserRepository userRepository = Mockito.mock(UserRepository.class);
   private final PlaceService placeService = Mockito.mock(PlaceService.class);
   private final SavedPlaceService service =
@@ -40,8 +41,7 @@ class SavedPlaceServiceTest {
 
   @Test
   void savesPlaceSnapshotInUserList() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "favorites");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
@@ -77,8 +77,7 @@ class SavedPlaceServiceTest {
 
   @Test
   void rejectsInvalidLocationWithoutSavingPlace() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "favorites");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
@@ -94,15 +93,15 @@ class SavedPlaceServiceTest {
                         "place-1", "Station", "TRANSPORTATION", true, "Seoul", 91.0, 126.9, null)))
         .isInstanceOfSatisfying(
             CustomException.class,
-            exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
     verify(savedPlaceRepository, never()).save(any(SavedPlace.class));
   }
 
   @Test
   void refreshesSavedPlaceSnapshotWhenReadingList() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "favorites");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
@@ -167,22 +166,13 @@ class SavedPlaceServiceTest {
 
   @Test
   void removesSavedPlaceWhenSourcePlaceNoLongerExists() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "favorites");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
     SavedPlace savedPlace =
         new SavedPlace(
-            placeList,
-            "place-1",
-            "name",
-            PlaceCategory.ETC,
-            false,
-            "address",
-            37.0,
-            127.0,
-            null);
+            placeList, "place-1", "name", PlaceCategory.ETC, false, "address", 37.0, 127.0, null);
 
     when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
     when(savedPlaceListRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(placeList));
@@ -199,8 +189,7 @@ class SavedPlaceServiceTest {
 
   @Test
   void updatesSavedPlaceListName() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "favorites");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
@@ -215,22 +204,13 @@ class SavedPlaceServiceTest {
 
   @Test
   void deletesSavedPlaceListWithChildren() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "favorites");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
     SavedPlace savedPlace =
         new SavedPlace(
-            placeList,
-            "place-1",
-            "name",
-            PlaceCategory.ETC,
-            false,
-            "address",
-            37.0,
-            127.0,
-            null);
+            placeList, "place-1", "name", PlaceCategory.ETC, false, "address", 37.0, 127.0, null);
 
     when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
     when(savedPlaceListRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(placeList));
@@ -245,22 +225,13 @@ class SavedPlaceServiceTest {
 
   @Test
   void removesSavedPlaceFromList() {
-    User user =
-        User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
     SavedPlaceList placeList = new SavedPlaceList(user, "favorites");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
     SavedPlace savedPlace =
         new SavedPlace(
-            placeList,
-            "place-1",
-            "name",
-            PlaceCategory.ETC,
-            false,
-            "address",
-            37.0,
-            127.0,
-            null);
+            placeList, "place-1", "name", PlaceCategory.ETC, false, "address", 37.0, 127.0, null);
     ReflectionTestUtils.setField(savedPlace, "id", 7L);
 
     when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));

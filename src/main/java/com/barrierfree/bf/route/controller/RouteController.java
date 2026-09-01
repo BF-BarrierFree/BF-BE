@@ -73,13 +73,15 @@ public class RouteController {
   @Operation(summary = "TAGO 연동 테스트", description = "TAGO 시외버스 API 연결 상태를 테스트합니다.")
   @GetMapping("/test/tago")
   public ApiResponse<String> testTagoConnection() {
-    return ApiResponse.success(tagoRouteService.testTagoCityCodeConnection(), "TAGO(시외버스) 연동 테스트 성공");
+    return ApiResponse.success(
+        tagoRouteService.testTagoCityCodeConnection(), "TAGO(시외버스) 연동 테스트 성공");
   }
 
   @Operation(summary = "TAGO 저상버스 도착 정보 테스트", description = "도시 코드와 정류소 ID로 저상버스 도착 정보를 테스트합니다.")
   @GetMapping("/test/tago/bus")
   public ApiResponse<String> testTagoLowFloorBusConnection(
-      @Parameter(description = "도시 코드", example = "25") @RequestParam(defaultValue = "25") int cityCode,
+      @Parameter(description = "도시 코드", example = "25") @RequestParam(defaultValue = "25")
+          int cityCode,
       @Parameter(description = "정류소 ID", example = "DJB8001793")
           @RequestParam(defaultValue = "DJB8001793")
           String nodeId) {
@@ -153,8 +155,7 @@ public class RouteController {
           Boolean alternatives,
       @Parameter(description = "회피 옵션", example = "toll") @RequestParam(required = false)
           List<String> avoid,
-      @Parameter(description = "교통 이벤트 반영 옵션", example = "0")
-          @RequestParam(defaultValue = "0")
+      @Parameter(description = "교통 이벤트 반영 옵션", example = "0") @RequestParam(defaultValue = "0")
           Integer roadevent) {
     String origin = startLng + "," + startLat;
     String destination = endLng + "," + endLat;
@@ -179,8 +180,7 @@ public class RouteController {
       @Parameter(description = "도착지 위도", example = "37.497942")
           @RequestParam(defaultValue = "37.497942")
           double endLat,
-      @Parameter(description = "출발 시각 (형식: YYYYMMDDHHMM)", example = "202606290830")
-          @RequestParam
+      @Parameter(description = "출발 시각 (형식: YYYYMMDDHHMM)", example = "202606290830") @RequestParam
           String departureTime,
       @Parameter(description = "우선순위 (RECOMMEND, TIME, DISTANCE)", example = "RECOMMEND")
           @RequestParam(defaultValue = "RECOMMEND")
@@ -190,8 +190,7 @@ public class RouteController {
           Boolean alternatives,
       @Parameter(description = "회피 옵션", example = "toll") @RequestParam(required = false)
           List<String> avoid,
-      @Parameter(description = "교통 이벤트 반영 옵션", example = "0")
-          @RequestParam(defaultValue = "0")
+      @Parameter(description = "교통 이벤트 반영 옵션", example = "0") @RequestParam(defaultValue = "0")
           Integer roadevent) {
     String origin = startLng + "," + startLat;
     String destination = endLng + "," + endLat;

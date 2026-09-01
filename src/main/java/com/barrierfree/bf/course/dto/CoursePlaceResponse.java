@@ -15,20 +15,19 @@ public record CoursePlaceResponse(
     Double longitude,
     String photoUrl,
     String distanceToNext,
-    String movingTip
-) {
-    public static CoursePlaceResponse from(CoursePlace place) {
-        return CoursePlaceResponse.builder()
-            .id(place.getId())
-            .sequence(place.getSequence())
-            .name(place.getName())
-            .category(place.getCategory())
-            .address(place.getAddress())
-            .latitude(place.getLatitude())
-            .longitude(place.getLongitude())
-            .photoUrl(place.getPhotoUrl())
-            .distanceToNext(place.getDistanceToNext())
-            .movingTip(place.getMovingTip())
-            .build();
-    }
+    String movingTip) {
+  public static CoursePlaceResponse from(CoursePlace place) {
+    return CoursePlaceResponse.builder()
+        .id(place.getId())
+        .sequence(place.getSequence())
+        .name(place.getName())
+        .category(place.getCategory())
+        .address(place.getAddress())
+        .latitude(place.getLatitude())
+        .longitude(place.getLongitude())
+        .photoUrl(place.getPhotoUrl())
+        .distanceToNext(place.getDistanceToNext())
+        .movingTip(place.getMovingTip())
+        .build();
+  }
 }

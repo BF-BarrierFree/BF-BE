@@ -83,8 +83,7 @@ public class PlaceController {
           Integer pageSize,
       @Parameter(description = "다음 페이지 토큰") @RequestParam(required = false) String pageToken,
       @Parameter(
-              description =
-                  "이용자 유형을 콤마로 입력. 예: 휠체어 이용자,유아차 동반,인지/발달 장애,시각 장애,청각 장애",
+              description = "이용자 유형을 콤마로 입력. 예: 휠체어 이용자,유아차 동반,인지/발달 장애,시각 장애,청각 장애",
               schema = @Schema(type = "string"))
           @RequestParam(required = false)
           String userTypes,

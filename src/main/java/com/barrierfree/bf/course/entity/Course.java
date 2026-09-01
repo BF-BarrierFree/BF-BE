@@ -30,44 +30,40 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Course extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 
-    @Column(nullable = false, length = 100)
-    private String title;
+  @Column(nullable = false, length = 100)
+  private String title;
 
-    @Column(nullable = false)
-    private boolean isAiGenerated;
+  @Column(nullable = false)
+  private boolean isAiGenerated;
 
-    // 코스가 삭제되면 하위 장소들도 삭제되도록 Cascade 적용
-    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("sequence ASC") // 조회 시 항상 sequence(순서) 기준으로 정렬되도록 보장
-    private List<CoursePlace> places = new ArrayList<>();
+  // 코스가 삭제되면 하위 장소들도 삭제되도록 Cascade 적용
+  @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, orphanRemoval = true)
+  @OrderBy("sequence ASC") // 조회 시 항상 sequence(순서) 기준으로 정렬되도록 보장
+  private List<CoursePlace> places = new ArrayList<>();
 
-    @Builder
-    public Course(User user, String title, boolean isAiGenerated) {
-        this.user = user;
-        this.title = title;
-        this.isAiGenerated = isAiGenerated;
-    }
+  @Builder
+  public Course(User user, String title, boolean isAiGenerated) {
+    this.user = user;
+    this.title = title;
+    this.isAiGenerated = isAiGenerated;
+  }
 
-    /**
-     * 코스의 제목을 수정합니다.
-     */
-    public void updateTitle(String title) {
-        this.title = title;
-    }
+  /** 코스의 제목을 수정합니다. */
+  public void updateTitle(String title) {
+    this.title = title;
+  }
 
-    /**
-     * 연관관계 편의 메서드: 코스에 장소를 추가합니다.
-     */
-    public void addPlace(CoursePlace place) {
-        this.places.add(place);
-        place.setCourse(this);
-    }
+  /** 연관관계 편의 메서드: 코스에 장소를 추가합니다. */
+  public void addPlace(CoursePlace place) {
+    this.places.add(place);
+    place.setCourse(this);
+  }
 }

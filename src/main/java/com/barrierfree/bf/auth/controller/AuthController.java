@@ -39,12 +39,12 @@ public class AuthController {
   @Operation(summary = "카카오 소셜 로그인", description = "카카오 인가 코드를 받아 유저를 생성하거나 로그인시키고, JWT 토큰을 반환합니다.")
   @PostMapping("/kakao/login")
   public ApiResponse<AuthResponse> kakaoLogin(@Valid @RequestBody KakaoLoginRequest request) {
-      log.info("카카오 로그인 요청 수신 (code: {}, redirectUri: {})", request.code(), request.redirectUri());
+    log.info("카카오 로그인 요청 수신 (code: {}, redirectUri: {})", request.code(), request.redirectUri());
 
-      // code와 redirectUri를 함께 넘겨줍니다.
-      AuthResponse response = authService.kakaoLogin(request.code(), request.redirectUri());
+    // code와 redirectUri를 함께 넘겨줍니다.
+    AuthResponse response = authService.kakaoLogin(request.code(), request.redirectUri());
 
-      return ApiResponse.success(response, "카카오 로그인이 완료되었습니다.");
+    return ApiResponse.success(response, "카카오 로그인이 완료되었습니다.");
   }
 
   @Operation(summary = "로그아웃", description = "현재 로그인한 유저의 Refresh Token을 삭제하여 로그아웃 처리합니다.")
