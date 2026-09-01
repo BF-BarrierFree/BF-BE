@@ -33,15 +33,13 @@ class CourseServiceTest {
   private final UserRepository userRepository = Mockito.mock(UserRepository.class);
   private final OrsRouteService orsRouteService = Mockito.mock(OrsRouteService.class);
   private final CourseService service =
-      new CourseService(
-          courseRepository, savedPlaceRepository, userRepository, orsRouteService);
+      new CourseService(courseRepository, savedPlaceRepository, userRepository, orsRouteService);
 
   @Test
   void rejectsSavedPlaceNotOwnedByRequestingUser() {
     User requestingUser =
         User.builder().socialId("kakao-1").nickname("requester").role(Role.USER).build();
-    User otherUser =
-        User.builder().socialId("kakao-2").nickname("other").role(Role.USER).build();
+    User otherUser = User.builder().socialId("kakao-2").nickname("other").role(Role.USER).build();
     SavedPlace foreignPlace =
         new SavedPlace(
             new SavedPlaceList(otherUser, "다른 사용자의 목록"),

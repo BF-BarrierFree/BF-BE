@@ -753,7 +753,8 @@ public class PlaceService {
     int normalizedMaxWidthPx = normalizePhotoWidth(maxWidthPx);
 
     String metadataUrl =
-        UriComponentsBuilder.fromUriString("https://places.googleapis.com/v1/" + photoName + "/media")
+        UriComponentsBuilder.fromUriString(
+                "https://places.googleapis.com/v1/" + photoName + "/media")
             .queryParam("maxWidthPx", normalizedMaxWidthPx)
             .queryParam("skipHttpRedirect", true)
             .queryParam("key", googleApiKey)
@@ -768,7 +769,8 @@ public class PlaceService {
             .onStatus(
                 HttpStatusCode::isError,
                 response -> {
-                  log.error("Google Places Photo metadata failed. status={}", response.statusCode());
+                  log.error(
+                      "Google Places Photo metadata failed. status={}", response.statusCode());
                   return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
                 })
             .bodyToMono(JsonNode.class)

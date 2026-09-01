@@ -154,10 +154,7 @@ public class OdsayRouteService {
 
       TransitRouteResponse.RouteOption primaryRoute = routes.get(0);
       return new TransitRouteResponse(
-          routes.size(),
-          primaryRoute.totalTimeMinute(),
-          primaryRoute.totalDistanceMeter(),
-          routes);
+          routes.size(), primaryRoute.totalTimeMinute(), primaryRoute.totalDistanceMeter(), routes);
     } catch (CustomException e) {
       throw e;
     } catch (Exception e) {

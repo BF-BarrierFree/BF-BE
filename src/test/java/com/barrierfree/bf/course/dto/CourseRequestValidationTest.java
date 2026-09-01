@@ -14,11 +14,9 @@ class CourseRequestValidationTest {
       var validator = validatorFactory.getValidator();
 
       var createViolations =
-          validator.validate(
-              new CourseCreateRequest("서울 코스", Collections.singletonList(null)));
+          validator.validate(new CourseCreateRequest("서울 코스", Collections.singletonList(null)));
       var updateViolations =
-          validator.validate(
-              new CourseUpdateRequest("서울 코스", Collections.singletonList(null)));
+          validator.validate(new CourseUpdateRequest("서울 코스", Collections.singletonList(null)));
 
       assertThat(createViolations).hasSize(1);
       assertThat(updateViolations).hasSize(1);
