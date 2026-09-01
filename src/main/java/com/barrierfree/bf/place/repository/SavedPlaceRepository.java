@@ -11,6 +11,8 @@ public interface SavedPlaceRepository extends JpaRepository<SavedPlace, Long> {
 
   Optional<SavedPlace> findByPlaceListIdAndPlaceId(Long placeListId, String placeId);
 
+  Optional<SavedPlace> findByIdAndPlaceListUserId(Long id, Long userId);
+
   Optional<SavedPlace> findByIdAndPlaceListIdAndPlaceListUserId(
       Long id, Long placeListId, Long userId);
 }
