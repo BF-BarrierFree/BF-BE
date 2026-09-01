@@ -47,7 +47,7 @@ public class CourseService {
             .build();
 
         // 2. 전달받은 장소 ID 리스트를 순회하며 CoursePlace 스냅샷 생성 및 거리 계산
-        buildCoursePlaces(course, request.savedPlaceIds());
+        buildCoursePlaces(userId, course, request.savedPlaceIds());
 
         // 3. 저장 및 반환
         Course savedCourse = courseRepository.save(course);
@@ -91,7 +91,7 @@ public class CourseService {
 
         // 기존 장소들 제거 후 새롭게 구성 (JPA orphanRemoval에 의해 삭제됨)
         course.getPlaces().clear();
-        buildCoursePlaces(course, request.savedPlaceIds());
+        buildCoursePlaces(userId, course, request.savedPlaceIds());
 
         return CourseResponse.from(course);
     }
@@ -117,14 +117,14 @@ public class CourseService {
     /**
      * 장소 ID 목록을 순회하며 코스에 들어갈 장소(CoursePlace)를 빌드하고 거리를 계산합니다.
      */
-    private void buildCoursePlaces(Course course, List<Long> savedPlaceIds) {
+    private void buildCoursePlaces(Long userId, Course course, List<Long> savedPlaceIds) {
         if (savedPlaceIds == null || savedPlaceIds.isEmpty()) {
             throw new CustomException(ErrorCode.COURSE_PLACE_EMPTY);
         }
 
         for (int i = 0; i < savedPlaceIds.size(); i++) {
             Long placeId = savedPlaceIds.get(i);
-            SavedPlace savedPlace = savedPlaceRepository.findById(placeId)
+            SavedPlace savedPlace = savedPlaceRepository.findByIdAndPlaceListUserId(placeId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.SAVED_PLACE_NOT_FOUND));
 
             String distanceToNext = null;
@@ -132,7 +132,7 @@ public class CourseService {
             // 마지막 장소가 아니면 다음 장소까지의 휠체어 이동 거리를 계산
             if (i < savedPlaceIds.size() - 1) {
                 Long nextPlaceId = savedPlaceIds.get(i + 1);
-                SavedPlace nextPlace = savedPlaceRepository.findById(nextPlaceId)
+                SavedPlace nextPlace = savedPlaceRepository.findByIdAndPlaceListUserId(nextPlaceId, userId)
                     .orElseThrow(() -> new CustomException(ErrorCode.SAVED_PLACE_NOT_FOUND));
 
                 distanceToNext = calculateDistanceToNext(savedPlace, nextPlace);
