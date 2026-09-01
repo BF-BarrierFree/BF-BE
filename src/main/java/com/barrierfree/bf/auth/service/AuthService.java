@@ -26,9 +26,10 @@ public class AuthService {
 
   /** 프론트엔드로부터 인가 코드를 받아 카카오 토큰 발급 -> 회원 조회/가입 -> 자체 JWT 발급을 수행합니다. */
   @Transactional
-  public AuthResponse kakaoLogin(String code) {
-    // 1. 카카오 서버로부터 Access Token 발급
-    String kakaoAccessToken = kakaoOAuthClient.getAccessToken(code);
+  public AuthResponse kakaoLogin(String code, String redirectUri) { // redirectUri 파라미터 추가
+
+    // 1. 카카오 서버로부터 Access Token 발급 (redirectUri 함께 전달)
+    String kakaoAccessToken = kakaoOAuthClient.getAccessToken(code, redirectUri);
 
     // 2. 발급받은 Token으로 유저 프로필 조회
     KakaoUserInfoResponse kakaoUserInfo = kakaoOAuthClient.getUserInfo(kakaoAccessToken);
