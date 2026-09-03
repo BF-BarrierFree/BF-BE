@@ -43,4 +43,9 @@ public class UserTermAgreement extends BaseEntity {
     this.term = term;
     this.isAgreed = isAgreed;
   }
+
+    // 약관 동의 상태 변경을 위한 편의 메서드 추가
+    public void updateAgreement(boolean isAgreed) {
+        this.isAgreed = isAgreed;
+    }
 }

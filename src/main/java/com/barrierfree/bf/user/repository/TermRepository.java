@@ -6,6 +6,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TermRepository extends JpaRepository<Term, Long> {
 
-  // 현재 활성화(사용 중)인 약관 목록만 모두 가져옵니다.
-  List<Term> findByIsActiveTrue();
+    // 현재 활성화(사용 중)인 약관 목록만 모두 가져옵니다.
+    List<Term> findAllByIsActiveTrue();
+
+    // 현재 활성화(사용 중)인 필수 약관 목록만 모두 가져옵니다.
+    List<Term> findAllByIsRequiredTrueAndIsActiveTrue();
 }
