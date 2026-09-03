@@ -2,6 +2,7 @@ package com.barrierfree.bf.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,6 +10,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TermCreateRequest {
+
+    @NotBlank(message = "약관 키를 입력해주세요.")
+    @Size(max = 100, message = "약관 키는 100자 이하여야 합니다.")
+    private String termKey;
 
     @NotBlank(message = "약관 제목을 입력해주세요.")
     private String title;

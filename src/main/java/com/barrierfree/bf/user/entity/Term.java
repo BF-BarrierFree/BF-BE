@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -18,7 +19,12 @@ import lombok.NoArgsConstructor;
  * 관리되며, 변경 시 새로운 레코드를 생성합니다.
  */
 @Entity
-@Table(name = "terms")
+@Table(
+    name = "terms",
+    uniqueConstraints =
+        @UniqueConstraint(
+            name = "uk_terms_term_key_version",
+            columnNames = {"term_key", "version"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Term extends BaseEntity {
@@ -26,6 +32,9 @@ public class Term extends BaseEntity {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  @Column(name = "term_key", nullable = false, length = 100)
+  private String termKey;
 
   @Column(nullable = false, length = 100)
   private String title; // 약관 제목 (예: 서비스 이용약관)
@@ -47,17 +56,23 @@ public class Term extends BaseEntity {
 
   @Builder
   public Term(
+      String termKey,
       String title,
       String content,
       boolean isRequired,
       boolean isActive,
       Integer version,
       LocalDateTime effectiveDate) {
+    this.termKey = termKey;
     this.title = title;
     this.content = content;
     this.isRequired = isRequired;
     this.isActive = isActive;
     this.version = version != null ? version : 1;
     this.effectiveDate = effectiveDate != null ? effectiveDate : LocalDateTime.now();
+  }
+
+  public void deactivate() {
+    this.isActive = false;
   }
 }

@@ -22,14 +22,21 @@ public class TermServiceImpl implements TermService {
     @Override
     @Transactional
     public TermResponse createTerm(TermCreateRequest request) {
-        // 동일한 제목의 약관이 있으면 버전을 증가시키고, 없으면 1로 생성하는 로직 등이 추가될 수 있습니다.
-        // 현재는 단순 생성으로 구현합니다. (추후 버전 관리 고도화 가능)
+        termRepository.lockTermKey(request.getTermKey());
+
+        Term latestRevision =
+            termRepository.findFirstByTermKeyOrderByVersionDesc(request.getTermKey()).orElse(null);
+        int nextVersion = latestRevision == null ? 1 : latestRevision.getVersion() + 1;
+        termRepository
+            .findByTermKeyAndIsActiveTrue(request.getTermKey())
+            .ifPresent(Term::deactivate);
 
         Term term = Term.builder()
+            .termKey(request.getTermKey())
             .title(request.getTitle())
             .content(request.getContent())
             .isRequired(request.getIsRequired())
-            .version(1) // 기본 버전 1
+            .version(nextVersion)
             .isActive(true)
             .build();
 

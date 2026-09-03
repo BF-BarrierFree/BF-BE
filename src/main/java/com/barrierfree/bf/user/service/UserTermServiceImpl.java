@@ -13,7 +13,10 @@ import com.barrierfree.bf.user.repository.UserTermAgreementRepository;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -24,6 +27,7 @@ public class UserTermServiceImpl implements UserTermService {
     private final UserRepository userRepository;
     private final TermRepository termRepository;
     private final UserTermAgreementRepository userTermAgreementRepository;
+    private final UserTermAgreementUpdateExecutor agreementUpdateExecutor;
 
     @Override
     public List<UserTermAgreementResponse> getUserAgreements(Long userId) {
@@ -36,32 +40,18 @@ public class UserTermServiceImpl implements UserTermService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void updateAgreements(Long userId, TermAgreementUpdateRequest request) {
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        for (TermAgreementUpdateRequest.TermAgreementDto dto : request.getAgreements()) {
-            Term term = termRepository.findById(dto.getTermId())
-                .orElseThrow(() -> new CustomException(ErrorCode.TERM_NOT_FOUND));
-
-            // 필수 약관인데 동의를 취소(false)하려는 경우 에러 처리
-            if (term.isRequired() && !dto.getIsAgreed()) {
-                throw new CustomException(ErrorCode.REQUIRED_TERM_CANCELLATION_NOT_ALLOWED);
+        try {
+            agreementUpdateExecutor.updateAgreements(userId, request);
+        } catch (DataIntegrityViolationException exception) {
+            String causeMessage = NestedExceptionUtils.getMostSpecificCause(exception).getMessage();
+            if (causeMessage == null
+                || !causeMessage.contains("uk_user_term_agreements_user_term")) {
+                throw exception;
             }
 
-            // 기존 동의 내역 조회
-            UserTermAgreement agreement = userTermAgreementRepository.findByUserIdAndTermId(userId, term.getId())
-                .orElseGet(() -> UserTermAgreement.builder()
-                    .user(user)
-                    .term(term)
-                    .isAgreed(dto.getIsAgreed())
-                    .build());
-
-            // 상태 업데이트 (기존 내역이 있으면 값 변경, 없으면 새로 생성된 객체의 값 설정)
-            agreement.updateAgreement(dto.getIsAgreed());
-
-            userTermAgreementRepository.save(agreement); // JPA Save (or Update)
+            agreementUpdateExecutor.updateAgreements(userId, request);
         }
     }
 

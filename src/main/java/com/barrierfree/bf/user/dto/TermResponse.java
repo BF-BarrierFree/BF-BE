@@ -9,6 +9,7 @@ import lombok.Getter;
 public class TermResponse {
 
     private final Long id;
+    private final String termKey;
     private final String title;
     private final String content;
     private final boolean isRequired;
@@ -17,6 +18,7 @@ public class TermResponse {
     public static TermResponse from(Term term) {
         return TermResponse.builder()
             .id(term.getId())
+            .termKey(term.getTermKey())
             .title(term.getTitle())
             .content(term.getContent())
             .isRequired(term.isRequired())

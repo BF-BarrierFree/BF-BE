@@ -27,7 +27,6 @@ public class TermController {
     @Operation(summary = "[관리자] 새 약관 생성", description = "새로운 약관 개정판을 생성하여 등록합니다.")
     @PostMapping
     public ApiResponse<TermResponse> createTerm(@Valid @RequestBody TermCreateRequest request) {
-        // TODO: 관리자 권한(Admin) 체크 로직은 SecurityConfig 또는 @PreAuthorize 로 처리 예정
         TermResponse response = termService.createTerm(request);
         return ApiResponse.success(response, "새로운 약관이 성공적으로 등록되었습니다.");
     }
