@@ -1,11 +1,7 @@
 package com.barrierfree.bf.user.controller;
 
 import com.barrierfree.bf.global.response.ApiResponse;
-import com.barrierfree.bf.user.dto.OnboardingRequest;
-import com.barrierfree.bf.user.dto.OnboardingResponse;
-import com.barrierfree.bf.user.dto.UserPreferenceResponse;
-import com.barrierfree.bf.user.dto.UserProfileResponse;
-import com.barrierfree.bf.user.dto.UserUpdateRequest;
+import com.barrierfree.bf.user.dto.*;
 import com.barrierfree.bf.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -73,4 +69,15 @@ public class UserController {
     UserPreferenceResponse response = userService.getPreferences(userId);
     return ApiResponse.success(response, "사용자 선호값 조회에 성공했습니다.");
   }
+
+    @Operation(summary = "내 선호 필터 수정", description = "이동 유형 및 필요 시설 필터 정보만 단독으로 가볍게 부분 수정(Patch)합니다.")
+    @PatchMapping("/me/preferences")
+    public ApiResponse<?> updateMyPreferences(
+        @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+        @RequestBody UserPreferenceUpdateRequest request) {
+
+        userService.updateMyPreferences(userId, request);
+        return ApiResponse.successWithNoContent();
+    }
+
 }
