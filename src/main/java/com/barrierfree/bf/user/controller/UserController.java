@@ -7,6 +7,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -43,7 +45,11 @@ public class UserController {
         description = "회원가입(온보딩) 및 프로필 수정 시 사용하려는 닉네임이 이미 존재하는지 확인합니다.")
     @GetMapping("/check-nickname")
     public ApiResponse<NicknameCheckResponse> checkNickname(
-        @Parameter(description = "확인할 닉네임", required = true) @RequestParam("nickname") String nickname) {
+        @Parameter(description = "확인할 닉네임", required = true)
+            @NotBlank(message = "닉네임을 입력해주세요.")
+            @Size(max = 15, message = "닉네임은 15자 이내로 입력해주세요.")
+            @RequestParam("nickname")
+            String nickname) {
 
         NicknameCheckResponse response = userService.checkNicknameAvailability(nickname);
         return ApiResponse.success(response, "닉네임 중복 확인이 완료되었습니다.");
