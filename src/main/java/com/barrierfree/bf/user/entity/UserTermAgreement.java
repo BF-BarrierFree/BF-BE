@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -17,7 +18,12 @@ import lombok.NoArgsConstructor;
 
 /** 유저와 약관 간의 동의 내역을 관리하는 매핑 테이블 */
 @Entity
-@Table(name = "user_term_agreements")
+@Table(
+    name = "user_term_agreements",
+    uniqueConstraints =
+        @UniqueConstraint(
+            name = "uk_user_term_agreements_user_term",
+            columnNames = {"user_id", "term_id"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserTermAgreement extends BaseEntity {
@@ -43,4 +49,9 @@ public class UserTermAgreement extends BaseEntity {
     this.term = term;
     this.isAgreed = isAgreed;
   }
+
+    // 약관 동의 상태 변경을 위한 편의 메서드 추가
+    public void updateAgreement(boolean isAgreed) {
+        this.isAgreed = isAgreed;
+    }
 }
