@@ -4,11 +4,7 @@ import com.barrierfree.bf.global.auth.JwtProvider;
 import com.barrierfree.bf.global.enums.Role;
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
-import com.barrierfree.bf.user.dto.OnboardingRequest;
-import com.barrierfree.bf.user.dto.OnboardingResponse;
-import com.barrierfree.bf.user.dto.UserPreferenceResponse;
-import com.barrierfree.bf.user.dto.UserProfileResponse;
-import com.barrierfree.bf.user.dto.UserUpdateRequest;
+import com.barrierfree.bf.user.dto.*;
 import com.barrierfree.bf.user.entity.User;
 import com.barrierfree.bf.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -127,5 +123,17 @@ public class UserService {
         String maskedNickname = "탈퇴유저_" + java.util.UUID.randomUUID().toString();
 
         user.softDelete(maskedNickname, null);
+    }
+
+    /** 내 선호 필터 정보만 단독으로 수정합니다. (부분 업데이트 지원) */
+    @Transactional
+    public void updateMyPreferences(Long userId, UserPreferenceUpdateRequest request) {
+        User user =
+            userRepository
+                .findByIdAndIsDeletedFalse(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        // Entity의 편의 메서드를 호출하여 상태 업데이트 (더티 체킹으로 자동 저장됨)
+        user.updatePreferences(request.getMobilities(), request.getFacilities());
     }
 }
