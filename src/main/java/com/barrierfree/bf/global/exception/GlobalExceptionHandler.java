@@ -4,6 +4,7 @@ import com.barrierfree.bf.global.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -33,6 +34,19 @@ public class GlobalExceptionHandler {
 
     // 첫 번째 에러 메시지만 가져옴
     String errorMessage = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
+    ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
+
+    return ResponseEntity.status(errorCode.getStatus())
+        .body(ApiResponse.error(errorCode.getCode(), errorMessage));
+  }
+
+  /** Validation for constrained controller method parameters, such as request parameters. */
+  @ExceptionHandler(HandlerMethodValidationException.class)
+  protected ResponseEntity<ApiResponse<?>> handleHandlerMethodValidationException(
+      HandlerMethodValidationException e) {
+    log.error("HandlerMethodValidationException: {}", e.getMessage());
+
+    String errorMessage = e.getAllErrors().get(0).getDefaultMessage();
     ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
 
     return ResponseEntity.status(errorCode.getStatus())

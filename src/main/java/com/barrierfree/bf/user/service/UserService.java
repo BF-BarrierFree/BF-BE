@@ -61,6 +61,14 @@ public class UserService {
             .build();
     }
 
+    /** 닉네임 사용 가능 여부(중복 여부)를 확인합니다. */
+    @Transactional(readOnly = true)
+    public NicknameCheckResponse checkNicknameAvailability(String nickname) {
+        // 존재하면 false(사용 불가), 존재하지 않으면 true(사용 가능) 반환
+        boolean isAvailable = !userRepository.existsByNickname(nickname);
+        return new NicknameCheckResponse(isAvailable);
+    }
+
     /** 내 프로필 정보(마이페이지)를 조회합니다. */
     @Transactional(readOnly = true)
     public UserProfileResponse getMyProfile(Long userId) {
