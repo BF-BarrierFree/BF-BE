@@ -97,35 +97,29 @@ public class AiCourseGenerateService {
                 keyword += "가볼만한곳";
         }
 
-        try {
-            // PlaceService.search() 호출 (기존에 구축된 접근성 필터링 로직이 내부에서 알아서 작동함)
-            PlaceSearchResponse searchResponse = placeService.search(
-                keyword,
-                targetCategory.name(),
-                region.getCenterLat(),
-                region.getCenterLng(),
-                SEARCH_RADIUS,
-                10, // 충분한 후보군 확보를 위해 10개 요청
-                null,
-                request.mobilityTypes(), // 유저의 장애 타입 (필터링 핵심)
-                List.of() // FacilityType은 별도로 받지 않으므로 빈 리스트
-            );
+        // PlaceService.search() 호출 (기존에 구축된 접근성 필터링 로직이 내부에서 알아서 작동함)
+        PlaceSearchResponse searchResponse = placeService.search(
+            keyword,
+            targetCategory.name(),
+            region.getCenterLat(),
+            region.getCenterLng(),
+            SEARCH_RADIUS,
+            10, // 충분한 후보군 확보를 위해 10개 요청
+            null,
+            request.mobilityTypes(), // 유저의 장애 타입 (필터링 핵심)
+            List.of() // FacilityType은 별도로 받지 않으므로 빈 리스트
+        );
 
-            if (searchResponse == null || searchResponse.places().isEmpty()) {
-                return null;
-            }
-
-            // 검색된 후보군 중, 이미 코스에 들어간 장소를 제외하고 첫 번째 장소 선택
-            // (추후 Jina Embedding 텍스트 유사도 비교나 별점(Rating) 높은 순 정렬을 이 부분에 추가할 수 있습니다.)
-            return searchResponse.places().stream()
-                .filter(place -> !usedPlaceIds.contains(place.placeId()))
-                .findFirst()
-                .orElse(null);
-
-        } catch (Exception e) {
-            log.error("장소 검색 중 오류 발생. keyword: {}", keyword, e);
+        if (searchResponse.places().isEmpty()) {
             return null;
         }
+
+        // 검색된 후보군 중, 이미 코스에 들어간 장소를 제외하고 첫 번째 장소 선택
+        // (추후 Jina Embedding 텍스트 유사도 비교나 별점(Rating) 높은 순 정렬을 이 부분에 추가할 수 있습니다.)
+        return searchResponse.places().stream()
+            .filter(place -> !usedPlaceIds.contains(place.placeId()))
+            .findFirst()
+            .orElse(null);
     }
 
     /**
