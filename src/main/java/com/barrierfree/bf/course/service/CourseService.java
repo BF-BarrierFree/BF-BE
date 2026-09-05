@@ -1,8 +1,6 @@
 package com.barrierfree.bf.course.service;
 
-import com.barrierfree.bf.course.dto.CourseCreateRequest;
-import com.barrierfree.bf.course.dto.CourseResponse;
-import com.barrierfree.bf.course.dto.CourseUpdateRequest;
+import com.barrierfree.bf.course.dto.*;
 import com.barrierfree.bf.course.entity.Course;
 import com.barrierfree.bf.course.entity.CoursePlace;
 import com.barrierfree.bf.course.repository.CourseRepository;
@@ -97,6 +95,57 @@ public class CourseService {
     courseRepository.delete(course);
   }
 
+    /**
+     * AI가 생성한 코스 미리보기를 실제 DB에 저장합니다.
+     * (isAiGenerated 플래그를 true로 설정)
+     */
+    @Transactional
+    public CourseResponse saveAiCourse(Long userId, AiCourseSaveRequest request) {
+        User user = getUser(userId);
+
+        // 1. 코스 엔티티 생성 (AI 생성 명시)
+        Course course = Course.builder()
+            .user(user)
+            .title(request.title())
+            .isAiGenerated(true)
+            .build();
+
+        List<AiCoursePlaceSaveDto> places = request.places();
+
+        // 2. 전달받은 장소 리스트를 순회하며 CoursePlace 스냅샷 생성 및 거리 계산
+        for (int i = 0; i < places.size(); i++) {
+            AiCoursePlaceSaveDto placeDto = places.get(i);
+            String distanceToNext = null;
+
+            // 마지막 장소가 아니면 다음 장소까지의 휠체어 이동 거리를 계산
+            if (i < places.size() - 1) {
+                AiCoursePlaceSaveDto nextPlace = places.get(i + 1);
+                distanceToNext = calculateDistanceByCoordinates(
+                    placeDto.longitude(), placeDto.latitude(),
+                    nextPlace.longitude(), nextPlace.latitude());
+            }
+
+            // 스냅샷 엔티티 생성
+            CoursePlace coursePlace = CoursePlace.builder()
+                .sequence(i)
+                .originalPlaceId(placeDto.placeId())
+                .name(placeDto.name())
+                .category(placeDto.category())
+                .address(placeDto.address())
+                .latitude(placeDto.latitude())
+                .longitude(placeDto.longitude())
+                .photoUrl(placeDto.photoUrl())
+                .distanceToNext(distanceToNext)
+                .movingTip(generateMovingTip(placeDto.category()))
+                .build();
+
+            course.addPlace(coursePlace);
+        }
+
+        Course savedCourse = courseRepository.save(course);
+        return CourseResponse.from(savedCourse);
+    }
+
   // --- Helper Methods ---
 
   private User getUser(Long userId) {
@@ -170,6 +219,24 @@ public class CourseService {
     }
   }
 
+    /** (AI 코스용 오버로딩) 좌표를 기반으로 두 장소 간의 휠체어 길찾기 결과를 요청합니다. */
+    private String calculateDistanceByCoordinates(Double currentLng, Double currentLat, Double nextLng, Double nextLat) {
+        try {
+            WheelchairRouteResponse routeResponse =
+                orsRouteService.getWheelchairRoute(currentLng, currentLat, nextLng, nextLat);
+
+            double meters = routeResponse.totalDistanceMeter();
+            return formatDistance(meters);
+
+        } catch (CustomException e) {
+            log.warn("경로를 찾을 수 없거나 에러가 발생했습니다.");
+            return "경로 없음"; // 프론트엔드에서 예외 처리할 수 있도록 텍스트 반환
+        } catch (Exception e) {
+            log.error("경로 탐색 중 예상치 못한 에러 발생", e);
+            return "거리 계산 실패";
+        }
+    }
+
   /** 거리를 UI 친화적인 포맷(예: "1.3km", "500m")으로 변환합니다. */
   private String formatDistance(double meters) {
     if (meters < 1000) {
@@ -193,4 +260,5 @@ public class CourseService {
       case ETC -> "완만한 경사로를 이용하고, 필요한 경우 내부 안내 데스크에 문의하세요.";
     };
   }
+
 }

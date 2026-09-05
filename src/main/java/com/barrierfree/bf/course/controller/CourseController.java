@@ -1,8 +1,7 @@
 package com.barrierfree.bf.course.controller;
 
-import com.barrierfree.bf.course.dto.CourseCreateRequest;
-import com.barrierfree.bf.course.dto.CourseResponse;
-import com.barrierfree.bf.course.dto.CourseUpdateRequest;
+import com.barrierfree.bf.course.dto.*;
+import com.barrierfree.bf.course.service.AiCourseGenerateService;
 import com.barrierfree.bf.course.service.CourseService;
 import com.barrierfree.bf.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CourseController {
 
   private final CourseService courseService;
+    private final AiCourseGenerateService aiCourseGenerateService;
 
   @Operation(
       summary = "나만의 코스 직접 생성",
@@ -140,4 +140,41 @@ public class CourseController {
     courseService.deleteCourse(userId, courseId);
     return ApiResponse.successWithNoContent();
   }
+
+    @Operation(
+        summary = "[AI 코스 생성] 1단계: 코스 미리보기 생성 (DB 저장 X)",
+        description = "유저의 5단계 입력값을 바탕으로 구글 맵 및 공공데이터를 실시간 검색하여 맞춤형 코스 미리보기를 조합합니다.<br>"
+            + "이 API는 조합 결과만 반환하며, **DB에 코스를 저장하지 않습니다.**<br><br>"
+            + "### [UI 5단계별 입력 Enum 가이드]<br>"
+            + "- **region (지역)**: `SEOUL`(서울), `BUSAN`(부산), `JEJU`(제주), `GYEONGJU`(경주), `JEONJU`(전주), `INCHEON`(인천), `DAEJEON`(대전), `DAEGU`(대구), `SUWON`(수원), `GANGNEUNG`(강릉)<br>"
+            + "- **companion (동행자)**: `ALONE`(혼자), `FRIENDS`(친구와), `COUPLE`(연인과), `FAMILY`(가족과)<br>"
+            + "- **mobilityTypes (이동 시 고려할 점)**: `WHEELCHAIR`(휠체어), `VISUAL_IMPAIRMENT`(시각장애), `HEARING_IMPAIRMENT`(청각장애), `STROLLER`(유아동반), `COGNITIVE_DEVELOPMENTAL`(인지/발달장애)<br>"
+            + "&nbsp;&nbsp; *(※ '없음'을 선택한 경우 빈 배열 `[]` 전송)*<br>"
+            + "- **theme (테마)**: `FOOD_CAFE`(맛집·카페), `NATURE_HEALING`(자연·휴식), `CULTURE_ART`(문화·예술), `ATTRACTION`(관광·명소), `SHOPPING`(쇼핑)<br>"
+            + "- **duration (일정)**: `HALF_DAY`(반나절 - 장소 2개 추천), `FULL_DAY`(하루 - 장소 4개 추천), `ONE_NIGHT_TWO_DAYS`(1박 2일), `TWO_NIGHTS_MORE`(2박 3일 이상)"
+    )
+    @PostMapping("/ai/preview")
+    public ApiResponse<AiCoursePreviewResponse> generateAiCoursePreview(
+        @Valid @RequestBody AiCourseGenerateRequest request) {
+
+        AiCoursePreviewResponse response = aiCourseGenerateService.generateCoursePreview(request);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(
+        summary = "[AI 코스 생성] 2단계: 코스 최종 저장",
+        description = "미리보기로 확인한 코스를 유저가 '저장하기' 눌렀을 때 호출하는 API입니다.<br>"
+            + "이때 비로소 AI가 추천한 장소들과 함께 코스가 DB에 물리적으로 저장되며, 장소 간 휠체어 이동 동선(거리)이 계산됩니다.<br><br>"
+            + "### [입력 가이드]<br>"
+            + "- **title**: 코스 이름 (예: '제주 가족 힐링 코스', 15자 이내)<br>"
+            + "- **places**: `/ai/preview` 응답으로 받았던 장소 데이터 배열을 **그대로 포함**해서 던져주어야 합니다. (각 장소의 카테고리, 좌표, 사진, 접근성 등)"
+    )
+    @PostMapping("/ai")
+    public ApiResponse<CourseResponse> saveAiCourse(
+        @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+        @Valid @RequestBody AiCourseSaveRequest request) {
+
+        CourseResponse response = courseService.saveAiCourse(userId, request);
+        return ApiResponse.success(response);
+    }
 }
