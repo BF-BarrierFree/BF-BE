@@ -93,6 +93,12 @@ public class SecurityConfig {
                     .hasAuthority("ROLE_ADMIN")
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/notices", "/api/v1/notices/**")
                     .hasAuthority("ROLE_ADMIN")
+                    .requestMatchers(HttpMethod.PATCH, "/api/v1/inquiries/*/answer")
+                    .hasAuthority("ROLE_ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/v1/inquiries")
+                    .hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/api/v1/inquiries/my", "/api/v1/inquiries/*")
+                    .hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                     // 헬스체크 및 기타 공용 경로는 인증 없이 접근 허용
                     .requestMatchers(
                         "/",
