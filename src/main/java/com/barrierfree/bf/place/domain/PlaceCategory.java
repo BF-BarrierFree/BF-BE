@@ -8,7 +8,8 @@ import java.util.Locale;
 import java.util.Set;
 
 public enum PlaceCategory {
-  FOOD_CAFE("음식점/카페", List.of("restaurant", "cafe", "bakery", "bar", "meal_takeaway")),
+  FOOD("음식점", List.of("restaurant", "bar", "meal_takeaway")),
+  CAFE("카페", List.of("cafe", "bakery")),
   TOUR_CULTURE(
       "관광지/문화시설",
       List.of(
@@ -26,7 +27,8 @@ public enum PlaceCategory {
       "공공시설",
       List.of(
           "government_office", "local_government_office", "city_hall", "post_office", "police")),
-  ETC("기타", List.of());
+  ETC("기타", List.of()),
+  FOOD_CAFE("음식점/카페", List.of("restaurant", "cafe", "bakery", "bar", "meal_takeaway"));
 
   private final String label;
   private final List<String> googleTypes;

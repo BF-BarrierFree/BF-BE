@@ -41,8 +41,8 @@ public class PlaceController {
           String input,
       @Parameter(
               description =
-                  "장소 카테고리. FOOD_CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
-              example = "TOUR_CULTURE")
+                  "장소 카테고리. FOOD, CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
+              example = "CAFE")
           @RequestParam(required = false)
           String category,
       @Parameter(description = "위도", example = "37.511") @RequestParam(required = false) Double lat,
@@ -68,8 +68,8 @@ public class PlaceController {
           String query,
       @Parameter(
               description =
-                  "장소 카테고리. FOOD_CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
-              example = "TOUR_CULTURE")
+                  "장소 카테고리. FOOD, CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
+              example = "CAFE")
           @RequestParam(required = false)
           String category,
       @Parameter(description = "위도", example = "37.511") @RequestParam(required = false) Double lat,
