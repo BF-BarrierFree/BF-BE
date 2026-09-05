@@ -38,7 +38,7 @@ jobs:
               "sudo -u ubuntu git -C /home/ubuntu/BF-BE reset --hard origin/main",
               "echo \"=== Deployed commit ===\"",
               "sudo -u ubuntu git -C /home/ubuntu/BF-BE log -1 --oneline",
-              "sudo -u ubuntu bash -c \"cd /home/ubuntu/BF-BE && ./gradlew clean build -x test --no-daemon -Dorg.gradle.jvmargs=\\\"-Xmx512m\\\"\"",
+             "sudo -u ubuntu bash -c \"cd /home/ubuntu/BF-BE && ./gradlew build -x test --no-daemon -Dorg.gradle.jvmargs=\\\"-Xmx512m\\\"\"",
               "systemctl restart bf-be",
               "sleep 10",
               "systemctl is-active --quiet bf-be",
