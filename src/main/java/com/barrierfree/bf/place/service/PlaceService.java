@@ -158,7 +158,11 @@ public class PlaceService {
     GooglePlaceResponseDto.OpeningHours openingHours = place.getRegularOpeningHours();
     String name = place.getDisplayName() == null ? null : place.getDisplayName().getText();
     PlaceCategory category = PlaceCategory.inferFromTypes(place.getTypes());
-    PublicBarrierFreeInfo publicInfo = tourBarrierFreeService.findByPlaceName(name);
+    PublicBarrierFreeInfo publicInfo =
+        tourBarrierFreeService.findByPlaceNameAndLocation(
+            name,
+            location == null ? null : location.getLatitude(),
+            location == null ? null : location.getLongitude());
 
     Integer reviewCount = place.getReviews() == null ? null : place.getReviews().size();
 
@@ -653,7 +657,12 @@ public class PlaceService {
     GooglePlaceResponseDto.AccessibilityOptions accessibility = place.getAccessibilityOptions();
     GooglePlaceResponseDto.OpeningHours openingHours = place.getRegularOpeningHours();
     String name = place.getDisplayName() == null ? null : place.getDisplayName().getText();
-    PublicBarrierFreeInfo publicInfo = getPublicInfo(name, publicInfoCache);
+    PublicBarrierFreeInfo publicInfo =
+        getPublicInfo(
+            name,
+            location == null ? null : location.getLatitude(),
+            location == null ? null : location.getLongitude(),
+            publicInfoCache);
 
     return new PlaceSearchResponse.PlaceSummary(
         place.getId(),
@@ -804,13 +813,32 @@ public class PlaceService {
   }
 
   private PublicBarrierFreeInfo getPublicInfo(
-      String name, Map<String, PublicBarrierFreeInfo> publicInfoCache) {
-    String cacheKey = normalize(name);
+      String name,
+      Double latitude,
+      Double longitude,
+      Map<String, PublicBarrierFreeInfo> publicInfoCache) {
+    String cacheKey = buildPublicInfoCacheKey(name, latitude, longitude);
     if (cacheKey.isBlank()) {
       return PublicBarrierFreeInfo.empty();
     }
     return publicInfoCache.computeIfAbsent(
-        cacheKey, key -> tourBarrierFreeService.findByPlaceName(name));
+        cacheKey,
+        key -> tourBarrierFreeService.findByPlaceNameAndLocation(name, latitude, longitude));
+  }
+
+  private String buildPublicInfoCacheKey(String name, Double latitude, Double longitude) {
+    String normalizedName = normalize(name);
+    if (normalizedName.isBlank()) {
+      return "";
+    }
+    if (latitude == null || longitude == null) {
+      return normalizedName;
+    }
+    return normalizedName
+        + ":"
+        + Math.round(latitude * 10000)
+        + ":"
+        + Math.round(longitude * 10000);
   }
 
   private String resolveAccessibilityDataSource(

@@ -5,18 +5,22 @@ spring:
     username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:5}
+      minimum-idle: ${DB_MIN_IDLE:1}
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate # 배포 시 validate 필수
+      ddl-auto: update # 배포 시 validate 필수
     properties:
       hibernate:
-        show_sql: false # 배포 시 false로 바꿀 것
-        format_sql: false # 배포 시 false로 바꿀 것
-        use_sql_comments: false # 배포 시 false로 바꿀 것
+        show_sql: true # 배포 시 false로 바꿀 것
+        format_sql: true # 배포 시 false로 바꿀 것
+        use_sql_comments: true # 배포 시 false로 바꿀 것
 
   flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
     baseline-on-migrate: true
     baseline-version: "0"
 
