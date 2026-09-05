@@ -34,9 +34,10 @@ public enum ErrorCode {
   KAKAO_USER_INFO_FAILED(HttpStatus.BAD_GATEWAY, "A002", "카카오 사용자 정보를 가져오지 못했습니다."),
   KAKAO_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "A003", "카카오 인증 서비스를 현재 사용할 수 없습니다."),
 
-  // --- 무장애 시설 관련 에러 (Facility) ---
+  // --- 무장애 시설 및 장소 관련 에러 (Facility/Place) ---
   FACILITY_NOT_FOUND(HttpStatus.NOT_FOUND, "F001", "해당 시설을 찾을 수 없습니다."),
-  SAVED_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "F002", "저장한 장소를 찾을 수 없습니다."),
+  SAVED_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "F002", "저장된 장소를 찾을 수 없습니다."),
+  PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "F003", "조건에 맞는 장소를 찾을 수 없습니다."),
 
   // --- 이미지 관련 에러 (Image) ---
   INVALID_IMAGE_FORMAT(HttpStatus.BAD_REQUEST, "I001", "지원하지 않는 이미지 형식입니다."),

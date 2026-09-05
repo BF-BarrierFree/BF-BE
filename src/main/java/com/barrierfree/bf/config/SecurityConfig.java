@@ -81,7 +81,8 @@ public class SecurityConfig {
                         "/api/v1/notices",
                         "/api/v1/notices/**",
                         "/api/v1/terms",
-                        "/api/v1/terms/**")
+                        "/api/v1/terms/**",
+                        "/api/v1/users/check-nickname")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/terms")
                     .hasAuthority("ROLE_ADMIN")
