@@ -24,6 +24,7 @@ public class TourBarrierFreeService {
 
   private static final String MOBILE_OS = "ETC";
   private static final String MOBILE_APP = "BarrierFree";
+  private static final double MAX_PLACE_MATCH_DISTANCE_METERS = 500.0;
 
   @Value("${public-data.tour-api.base-url:https://apis.data.go.kr/B551011/KorWithService2}")
   private String baseUrl;
@@ -34,12 +35,17 @@ public class TourBarrierFreeService {
   private final WebClient webClient;
 
   public PublicBarrierFreeInfo findByPlaceName(String placeName) {
+    return findByPlaceNameAndLocation(placeName, null, null);
+  }
+
+  public PublicBarrierFreeInfo findByPlaceNameAndLocation(
+      String placeName, Double latitude, Double longitude) {
     if (placeName == null || placeName.isBlank()) {
       return PublicBarrierFreeInfo.empty();
     }
 
     try {
-      String contentId = findContentId(placeName);
+      String contentId = findContentId(placeName, latitude, longitude);
       if (contentId == null) {
         return PublicBarrierFreeInfo.notFound();
       }
@@ -165,9 +171,9 @@ public class TourBarrierFreeService {
     }
   }
 
-  private String findContentId(String placeName) {
+  private String findContentId(String placeName, Double latitude, Double longitude) {
     JsonNode response = fetchKeywordSearch(placeName, 10);
-    JsonNode item = bestMatchedItem(response, placeName);
+    JsonNode item = bestMatchedItem(response, placeName, latitude, longitude);
     return item == null ? null : text(item, "contentid");
   }
 
@@ -282,27 +288,87 @@ public class TourBarrierFreeService {
     return items.isArray() ? (items.isEmpty() ? null : items.get(0)) : items;
   }
 
-  private JsonNode bestMatchedItem(JsonNode response, String placeName) {
+  private JsonNode bestMatchedItem(
+      JsonNode response, String placeName, Double latitude, Double longitude) {
     JsonNode items = response == null ? null : response.at("/response/body/items/item");
     if (items == null || items.isMissingNode() || items.isNull()) {
       return null;
     }
     if (!items.isArray()) {
-      return items;
+      return isAcceptableMatch(items, placeName, latitude, longitude) ? items : null;
     }
 
     String normalizedPlaceName = normalize(placeName);
-    JsonNode first = items.isEmpty() ? null : items.get(0);
+    JsonNode best = null;
+    double bestScore = Double.MAX_VALUE;
+
     for (JsonNode item : items) {
       String title = normalize(text(item, "title"));
-      if (!title.isBlank()
-          && (title.equals(normalizedPlaceName)
-              || title.contains(normalizedPlaceName)
-              || normalizedPlaceName.contains(title))) {
-        return item;
+      if (title.isBlank() || !isNameMatch(title, normalizedPlaceName)) {
+        continue;
+      }
+
+      Double distance =
+          distanceMeters(latitude, longitude, doubleValue(item, "mapy"), doubleValue(item, "mapx"));
+      if (distance != null && distance > MAX_PLACE_MATCH_DISTANCE_METERS) {
+        continue;
+      }
+      if (distance == null && latitude != null && longitude != null) {
+        continue;
+      }
+
+      double score =
+          nameScore(title, normalizedPlaceName) + (distance == null ? 0.0 : distance / 1000.0);
+      if (score < bestScore) {
+        best = item;
+        bestScore = score;
       }
     }
-    return first;
+    return best;
+  }
+
+  private boolean isAcceptableMatch(
+      JsonNode item, String placeName, Double latitude, Double longitude) {
+    String title = normalize(text(item, "title"));
+    if (title.isBlank() || !isNameMatch(title, normalize(placeName))) {
+      return false;
+    }
+
+    Double distance =
+        distanceMeters(latitude, longitude, doubleValue(item, "mapy"), doubleValue(item, "mapx"));
+    if (distance == null) {
+      return latitude == null || longitude == null;
+    }
+    return distance <= MAX_PLACE_MATCH_DISTANCE_METERS;
+  }
+
+  private boolean isNameMatch(String title, String placeName) {
+    return title.equals(placeName) || title.contains(placeName) || placeName.contains(title);
+  }
+
+  private double nameScore(String title, String placeName) {
+    if (title.equals(placeName)) {
+      return 0.0;
+    }
+    return Math.abs(title.length() - placeName.length()) + 1.0;
+  }
+
+  private Double distanceMeters(
+      Double sourceLat, Double sourceLng, Double targetLat, Double targetLng) {
+    if (sourceLat == null || sourceLng == null || targetLat == null || targetLng == null) {
+      return null;
+    }
+
+    double earthRadius = 6371000.0;
+    double lat1 = Math.toRadians(sourceLat);
+    double lat2 = Math.toRadians(targetLat);
+    double deltaLat = Math.toRadians(targetLat - sourceLat);
+    double deltaLng = Math.toRadians(targetLng - sourceLng);
+    double a =
+        Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+            + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+    double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadius * c;
   }
 
   private Boolean hasPositiveInfo(JsonNode item, String... fields) {
