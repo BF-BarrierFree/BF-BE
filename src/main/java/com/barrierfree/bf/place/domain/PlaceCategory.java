@@ -27,8 +27,7 @@ public enum PlaceCategory {
       "공공시설",
       List.of(
           "government_office", "local_government_office", "city_hall", "post_office", "police")),
-  ETC("기타", List.of()),
-  FOOD_CAFE("음식점/카페", List.of("restaurant", "cafe", "bakery", "bar", "meal_takeaway"));
+  ETC("기타", List.of());
 
   private final String label;
   private final List<String> googleTypes;

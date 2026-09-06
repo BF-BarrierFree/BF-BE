@@ -25,7 +25,7 @@ public class ReviewCreateRequest {
   private String placeName;
 
   @NotBlank(message = "장소 카테고리는 필수입니다.")
-  @Schema(description = "장소 카테고리 (FOOD_CAFE, TOUR_CULTURE 등)", example = "FOOD_CAFE")
+  @Schema(description = "장소 카테고리 (FOOD, CAFE, TOUR_CULTURE 등)", example = "FOOD")
   private String category;
 
   @NotNull(message = "별점은 필수입니다.")

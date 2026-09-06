@@ -64,6 +64,14 @@ public class PlaceSearchHistoryJdbcRepository {
         size);
   }
 
+  public void deleteById(Long historyId) {
+    jdbcTemplate.update("delete from place_search_history where id = ?", historyId);
+  }
+
+  public void deleteAll() {
+    jdbcTemplate.update("delete from place_search_history");
+  }
+
   private PlaceSearchHistoryResponse.SearchHistory mapRow(ResultSet rs, int rowNum)
       throws SQLException {
     PlaceCategory category = PlaceCategory.from(rs.getString("category"));

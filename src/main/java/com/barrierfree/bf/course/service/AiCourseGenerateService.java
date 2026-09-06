@@ -87,7 +87,7 @@ public class AiCourseGenerateService {
                 break;
             case "식당/카페":
                 keyword += "맛집 카페"; // 예: "제주 맛집 카페"
-                targetCategory = PlaceCategory.FOOD_CAFE;
+                targetCategory = PlaceCategory.FOOD;
                 break;
             case "숙박":
                 keyword += "장애인 객실 숙소 호텔";

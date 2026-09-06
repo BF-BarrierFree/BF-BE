@@ -12,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum CourseTheme {
-    FOOD_CAFE("맛집·카페", List.of(PlaceCategory.FOOD_CAFE)),
+    FOOD_CAFE("맛집·카페", List.of(PlaceCategory.FOOD, PlaceCategory.CAFE)),
     NATURE_HEALING("자연·휴식", List.of(PlaceCategory.PARK_TRAIL)),
     CULTURE_ART("문화·예술", List.of(PlaceCategory.TOUR_CULTURE)),
     ATTRACTION("관광·명소", List.of(PlaceCategory.TOUR_CULTURE)),

@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -139,6 +140,21 @@ public class PlaceController {
           Integer size) {
     PlaceSearchHistoryResponse response = placeSearchHistoryService.getRecent(size);
     return ApiResponse.success(response, "최근 장소 검색 기록 조회 성공");
+  }
+
+  @DeleteMapping("/search-histories")
+  @Operation(summary = "최근 장소 검색 기록 전체 삭제", description = "저장된 장소 검색 기록을 모두 삭제합니다.")
+  public ApiResponse<?> deleteSearchHistories() {
+    placeSearchHistoryService.deleteAll();
+    return ApiResponse.successWithNoContent();
+  }
+
+  @DeleteMapping("/search-histories/{historyId}")
+  @Operation(summary = "최근 장소 검색 기록 단건 삭제", description = "지정한 장소 검색 기록을 삭제합니다.")
+  public ApiResponse<?> deleteSearchHistory(
+      @Parameter(description = "검색 기록 ID", example = "1") @PathVariable Long historyId) {
+    placeSearchHistoryService.delete(historyId);
+    return ApiResponse.successWithNoContent();
   }
 
   private List<MobilityType> parseUserTypes(String rawValues) {

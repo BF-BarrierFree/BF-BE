@@ -21,6 +21,7 @@ public class GooglePlaceResponseDto {
     private List<String> types;
 
     private List<Review> reviews;
+    private Integer userRatingCount;
     private LocalizedText editorialSummary;
     private GenerativeSummary generativeSummary;
 
