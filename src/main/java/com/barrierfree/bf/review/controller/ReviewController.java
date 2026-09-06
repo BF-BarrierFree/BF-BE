@@ -79,7 +79,7 @@ public class ReviewController {
   })
   @GetMapping("/reviews")
   public ApiResponse<Page<ReviewResponse>> getAllReviews(
-      @Parameter(description = "장소 카테고리 필터", example = "FOOD_CAFE")
+      @Parameter(description = "장소 카테고리 필터", example = "FOOD")
           @RequestParam(value = "category", required = false)
           String category,
       @Parameter(

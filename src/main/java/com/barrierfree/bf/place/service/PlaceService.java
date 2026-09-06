@@ -12,7 +12,8 @@ import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchResponse;
 import com.barrierfree.bf.place.dto.PublicBarrierFreeInfo;
 import com.barrierfree.bf.place.dto.PublicBarrierFreePlace;
-import com.fasterxml.jackson.databind.JsonNode;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,8 +26,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.JsonNode;
 
 @Slf4j
 @Service
@@ -37,6 +41,7 @@ public class PlaceService {
       "https://places.googleapis.com/v1/places:autocomplete";
   private static final String TEXT_SEARCH_URL =
       "https://places.googleapis.com/v1/places:searchText";
+  private static final int MAX_CANDIDATE_QUERY_COUNT = 3;
   private static final String AUTOCOMPLETE_FIELD_MASK =
       "suggestions.placePrediction.placeId,"
           + "suggestions.placePrediction.text.text,"
@@ -49,6 +54,8 @@ public class PlaceService {
           + "places.location,"
           + "places.accessibilityOptions,"
           + "places.regularOpeningHours,"
+          + "places.nationalPhoneNumber,"
+          + "places.userRatingCount,"
           + "places.photos,"
           + "nextPageToken";
 
@@ -75,22 +82,7 @@ public class PlaceService {
     }
     putLocationBias(requestBody, lat, lng, radius);
 
-    GoogleAutocompleteResponseDto googleResponse =
-        webClient
-            .post()
-            .uri(AUTOCOMPLETE_URL)
-            .header("X-Goog-Api-Key", googleApiKey)
-            .header("X-Goog-FieldMask", AUTOCOMPLETE_FIELD_MASK)
-            .bodyValue(requestBody)
-            .retrieve()
-            .onStatus(
-                HttpStatusCode::isError,
-                response -> {
-                  log.error("Google Places Autocomplete failed. status={}", response.statusCode());
-                  return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
-                })
-            .bodyToMono(GoogleAutocompleteResponseDto.class)
-            .block();
+    GoogleAutocompleteResponseDto googleResponse = requestGoogleAutocomplete(requestBody);
 
     List<PlaceAutocompleteResponse.Suggestion> suggestions = new ArrayList<>();
     if (googleResponse != null && googleResponse.getSuggestions() != null) {
@@ -133,6 +125,7 @@ public class PlaceService {
           null,
           null,
           null,
+          null,
           publicInfo.elevator(),
           publicInfo.ramp(),
           publicInfo.voiceGuidance(),
@@ -148,7 +141,12 @@ public class PlaceService {
           null);
     }
 
-    GooglePlaceResponseDto.Place place = placeTestService.getPlaceDetails(placeId);
+    GooglePlaceResponseDto.Place place;
+    try {
+      place = placeTestService.getPlaceDetails(placeId);
+    } catch (RuntimeException e) {
+      throw toGoogleMapException("Details", Map.of("placeId", placeId), e);
+    }
     if (place == null) {
       throw new CustomException(ErrorCode.FACILITY_NOT_FOUND);
     }
@@ -164,7 +162,7 @@ public class PlaceService {
             location == null ? null : location.getLatitude(),
             location == null ? null : location.getLongitude());
 
-    Integer reviewCount = place.getReviews() == null ? null : place.getReviews().size();
+    Integer reviewCount = getReviewCount(place);
 
     return new PlaceDetailResponse(
         place.getId(),
@@ -177,6 +175,7 @@ public class PlaceService {
         place.getNationalPhoneNumber(),
         place.getWebsiteUri(),
         openingHours == null ? null : openingHours.getOpenNow(),
+        openingHours == null ? null : openingHours.getWeekdayDescriptions(),
         reviewCount,
         merge(
             accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
@@ -398,10 +397,15 @@ public class PlaceService {
   }
 
   public ResponseEntity<byte[]> getPhoto(String photoName, Integer maxWidthPx) {
-    String photoUri = resolvePhotoUrl(photoName, maxWidthPx);
+    String normalizedPhotoName = normalizePhotoName(photoName);
+    String photoUri = resolvePhotoUrl(normalizedPhotoName, maxWidthPx);
 
-    ResponseEntity<byte[]> imageResponse =
-        webClient.get().uri(photoUri).retrieve().toEntity(byte[].class).block();
+    ResponseEntity<byte[]> imageResponse;
+    try {
+      imageResponse = webClient.get().uri(photoUri).retrieve().toEntity(byte[].class).block();
+    } catch (RuntimeException e) {
+      throw toGoogleMapException("Photo Download", Map.of("photoName", normalizedPhotoName), e);
+    }
     if (imageResponse == null || imageResponse.getBody() == null) {
       throw new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
     }
@@ -413,21 +417,47 @@ public class PlaceService {
   }
 
   private GooglePlaceResponseDto requestGoogleTextSearch(Map<String, Object> requestBody) {
-    return webClient
-        .post()
-        .uri(TEXT_SEARCH_URL)
-        .header("X-Goog-Api-Key", googleApiKey)
-        .header("X-Goog-FieldMask", PLACE_FIELD_MASK)
-        .bodyValue(requestBody)
-        .retrieve()
-        .onStatus(
-            HttpStatusCode::isError,
-            response -> {
-              log.error("Google Places Text Search failed. status={}", response.statusCode());
-              return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
-            })
-        .bodyToMono(GooglePlaceResponseDto.class)
-        .block();
+    try {
+      return webClient
+          .post()
+          .uri(TEXT_SEARCH_URL)
+          .header("X-Goog-Api-Key", googleApiKey)
+          .header("X-Goog-FieldMask", PLACE_FIELD_MASK)
+          .bodyValue(requestBody)
+          .retrieve()
+          .onStatus(
+              HttpStatusCode::isError,
+              response -> {
+                log.error("Google Places Text Search failed. status={}", response.statusCode());
+                return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
+              })
+          .bodyToMono(GooglePlaceResponseDto.class)
+          .block();
+    } catch (RuntimeException e) {
+      throw toGoogleMapException("Text Search", requestBody, e);
+    }
+  }
+
+  private GoogleAutocompleteResponseDto requestGoogleAutocomplete(Map<String, Object> requestBody) {
+    try {
+      return webClient
+          .post()
+          .uri(AUTOCOMPLETE_URL)
+          .header("X-Goog-Api-Key", googleApiKey)
+          .header("X-Goog-FieldMask", AUTOCOMPLETE_FIELD_MASK)
+          .bodyValue(requestBody)
+          .retrieve()
+          .onStatus(
+              HttpStatusCode::isError,
+              response -> {
+                log.error("Google Places Autocomplete failed. status={}", response.statusCode());
+                return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
+              })
+          .bodyToMono(GoogleAutocompleteResponseDto.class)
+          .block();
+    } catch (RuntimeException e) {
+      throw toGoogleMapException("Autocomplete", requestBody, e);
+    }
   }
 
   private List<String> buildCandidateQueries(
@@ -440,6 +470,9 @@ public class PlaceService {
         for (PlaceAutocompleteResponse.Suggestion suggestion : autocompleteResponse.suggestions()) {
           if (suggestion != null && suggestion.name() != null && !suggestion.name().isBlank()) {
             addCandidateIfAbsent(candidates, suggestion.name());
+            if (candidates.size() >= MAX_CANDIDATE_QUERY_COUNT) {
+              break;
+            }
           }
         }
       }
@@ -447,9 +480,7 @@ public class PlaceService {
       log.warn("Autocomplete seed lookup failed. keyword={}", keyword, e);
     }
 
-    if (candidates.isEmpty()) {
-      candidates.add(keyword);
-    }
+    addCandidateIfAbsent(candidates, keyword);
     return candidates;
   }
 
@@ -491,7 +522,16 @@ public class PlaceService {
     }
     putLocationBias(candidateRequestBody, lat, lng, radius);
 
-    GooglePlaceResponseDto googleResponse = requestGoogleTextSearch(candidateRequestBody);
+    GooglePlaceResponseDto googleResponse;
+    try {
+      googleResponse = requestGoogleTextSearch(candidateRequestBody);
+    } catch (CustomException e) {
+      log.warn(
+          "Google Places exact candidate lookup failed. candidateQuery={}, errorCode={}",
+          candidateQuery,
+          e.getErrorCode().getCode());
+      return List.of();
+    }
     if (googleResponse == null || googleResponse.getPlaces() == null) {
       return List.of();
     }
@@ -657,12 +697,15 @@ public class PlaceService {
     GooglePlaceResponseDto.AccessibilityOptions accessibility = place.getAccessibilityOptions();
     GooglePlaceResponseDto.OpeningHours openingHours = place.getRegularOpeningHours();
     String name = place.getDisplayName() == null ? null : place.getDisplayName().getText();
+    Integer reviewCount = getReviewCount(place);
     PublicBarrierFreeInfo publicInfo =
-        getPublicInfo(
-            name,
-            location == null ? null : location.getLatitude(),
-            location == null ? null : location.getLongitude(),
-            publicInfoCache);
+        accessibilityFilterRequested
+            ? getPublicInfo(
+                name,
+                location == null ? null : location.getLatitude(),
+                location == null ? null : location.getLongitude(),
+                publicInfoCache)
+            : PublicBarrierFreeInfo.empty();
 
     return new PlaceSearchResponse.PlaceSummary(
         place.getId(),
@@ -672,7 +715,10 @@ public class PlaceService {
         location == null ? null : location.getLongitude(),
         category,
         category.getLabel(),
+        place.getNationalPhoneNumber(),
         openingHours == null ? null : openingHours.getOpenNow(),
+        openingHours == null ? null : openingHours.getWeekdayDescriptions(),
+        reviewCount,
         merge(
             accessibility == null ? null : accessibility.getWheelchairAccessibleEntrance(),
             publicInfo.ramp()),
@@ -713,6 +759,9 @@ public class PlaceService {
         category,
         category.getLabel(),
         null,
+        null,
+        null,
+        null,
         publicInfo.ramp(),
         publicInfo.accessibleParking(),
         publicInfo.accessibleRestroom(),
@@ -750,8 +799,18 @@ public class PlaceService {
         .toUriString();
   }
 
+  private Integer getReviewCount(GooglePlaceResponseDto.Place place) {
+    if (place == null) {
+      return null;
+    }
+    if (place.getUserRatingCount() != null) {
+      return place.getUserRatingCount();
+    }
+    return place.getReviews() == null ? null : place.getReviews().size();
+  }
+
   private String resolveIncludedType(PlaceCategory category) {
-    if (category == null || category == PlaceCategory.ETC || category == PlaceCategory.FOOD_CAFE) {
+    if (category == null || category == PlaceCategory.ETC) {
       return null;
     }
     return category.getPrimaryGoogleType();
@@ -761,35 +820,70 @@ public class PlaceService {
     validatePhotoName(photoName);
     int normalizedMaxWidthPx = normalizePhotoWidth(maxWidthPx);
 
-    String metadataUrl =
-        UriComponentsBuilder.fromUriString(
-                "https://places.googleapis.com/v1/" + photoName + "/media")
-            .queryParam("maxWidthPx", normalizedMaxWidthPx)
-            .queryParam("skipHttpRedirect", true)
-            .queryParam("key", googleApiKey)
-            .build()
-            .toUriString();
+    String metadataUrl;
+    try {
+      metadataUrl =
+          UriComponentsBuilder.fromUriString("https://places.googleapis.com/v1")
+              .pathSegment(photoName.split("/"))
+              .pathSegment("media")
+              .queryParam("maxWidthPx", normalizedMaxWidthPx)
+              .queryParam("skipHttpRedirect", true)
+              .queryParam("key", googleApiKey)
+              .build()
+              .toUriString();
+    } catch (RuntimeException e) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
 
-    JsonNode photoMetadata =
-        webClient
-            .get()
-            .uri(metadataUrl)
-            .retrieve()
-            .onStatus(
-                HttpStatusCode::isError,
-                response -> {
-                  log.error(
-                      "Google Places Photo metadata failed. status={}", response.statusCode());
-                  return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
-                })
-            .bodyToMono(JsonNode.class)
-            .block();
+    JsonNode photoMetadata;
+    try {
+      photoMetadata =
+          webClient
+              .get()
+              .uri(metadataUrl)
+              .retrieve()
+              .onStatus(
+                  HttpStatusCode::isError,
+                  response ->
+                      response
+                          .bodyToMono(String.class)
+                          .defaultIfEmpty("")
+                          .flatMap(
+                              errorBody -> {
+                                log.error(
+                                    "Google Places Photo metadata failed. status={}, body={}, photoName={}",
+                                    response.statusCode(),
+                                    errorBody,
+                                    photoName);
+                                return Mono.error(
+                                    new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
+                              }))
+              .bodyToMono(JsonNode.class)
+              .block();
+    } catch (RuntimeException e) {
+      throw toGoogleMapException("Photo Metadata", Map.of("photoName", photoName), e);
+    }
 
     String photoUri = photoMetadata == null ? null : photoMetadata.path("photoUri").asText(null);
     if (photoUri == null || photoUri.isBlank()) {
+      log.error(
+          "Google Places Photo metadata did not contain photoUri. photoName={}, metadata={}",
+          photoName,
+          photoMetadata);
       throw new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
     }
     return photoUri;
+  }
+
+  private String normalizePhotoName(String photoName) {
+    if (photoName == null) {
+      return null;
+    }
+    String normalized = photoName.trim();
+    if (normalized.contains("%2F") || normalized.contains("%2f")) {
+      normalized = URLDecoder.decode(normalized, StandardCharsets.UTF_8);
+    }
+    return normalized;
   }
 
   private void validatePhotoName(String photoName) {
@@ -882,6 +976,56 @@ public class PlaceService {
       return false;
     }
     return null;
+  }
+
+  private CustomException toGoogleMapException(
+      String operation, Map<String, Object> requestBody, RuntimeException exception) {
+    Throwable unwrapped = Exceptions.unwrap(exception);
+    if (unwrapped instanceof CustomException customException) {
+      return customException;
+    }
+    if (unwrapped instanceof WebClientResponseException responseException) {
+      log.error(
+          "Google Places {} failed. status={}, body={}, request={}",
+          operation,
+          responseException.getStatusCode(),
+          responseException.getResponseBodyAsString(),
+          sanitizeRequestBody(requestBody),
+          responseException);
+      return new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
+    }
+    if (isTimeoutException(unwrapped)) {
+      log.error(
+          "Google Places {} timed out. request={}",
+          operation,
+          sanitizeRequestBody(requestBody),
+          exception);
+      return new CustomException(ErrorCode.GOOGLE_MAP_TIMEOUT);
+    }
+
+    log.error(
+        "Google Places {} failed unexpectedly. request={}",
+        operation,
+        sanitizeRequestBody(requestBody),
+        exception);
+    return new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED);
+  }
+
+  private boolean isTimeoutException(Throwable throwable) {
+    while (throwable != null) {
+      String className = throwable.getClass().getName().toLowerCase();
+      if (className.contains("timeout")) {
+        return true;
+      }
+      throwable = throwable.getCause();
+    }
+    return false;
+  }
+
+  private Map<String, Object> sanitizeRequestBody(Map<String, Object> requestBody) {
+    Map<String, Object> sanitized = new HashMap<>(requestBody);
+    sanitized.remove("pageToken");
+    return sanitized;
   }
 
   private void putLocationBias(

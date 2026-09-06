@@ -12,6 +12,7 @@ import java.util.concurrent.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -38,6 +39,10 @@ public class TourBarrierFreeService {
     return findByPlaceNameAndLocation(placeName, null, null);
   }
 
+  @Cacheable(
+      cacheNames = "tourBarrierFreePlaceInfo",
+      key = "{#placeName, #latitude, #longitude}",
+      unless = "#result == null || #result.sourceStatus() == 'PUBLIC_DATA_API_FAILED'")
   public PublicBarrierFreeInfo findByPlaceNameAndLocation(
       String placeName, Double latitude, Double longitude) {
     if (placeName == null || placeName.isBlank()) {
@@ -62,6 +67,7 @@ public class TourBarrierFreeService {
     }
   }
 
+  @Cacheable(cacheNames = "tourBarrierFreeKeywordSearch", key = "{#keyword, #limit}")
   public List<PublicBarrierFreePlace> searchByKeyword(String keyword, int limit) {
     if (keyword == null || keyword.isBlank() || limit < 1) {
       return List.of();
@@ -139,6 +145,7 @@ public class TourBarrierFreeService {
     }
   }
 
+  @Cacheable(cacheNames = "tourBarrierFreePlaceDetail", key = "#contentId", unless = "#result == null")
   public PublicBarrierFreePlace findByContentId(String contentId) {
     if (contentId == null || contentId.isBlank()) {
       return null;

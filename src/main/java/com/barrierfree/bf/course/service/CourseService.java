@@ -251,7 +251,7 @@ public class CourseService {
     if (category == null) return "접근로 단차에 유의하며 이동하세요.";
 
     return switch (category) {
-      case FOOD_CAFE -> "출입구 턱이나 휠체어 진입 가능 여부를 매장에 미리 확인하시면 좋습니다.";
+      case FOOD, CAFE -> "출입구 턱이나 휠체어 진입 가능 여부를 매장에 미리 확인하시면 좋습니다.";
       case TOUR_CULTURE -> "관광지 내 휠체어용 완만한 경사로나 전용 산책로를 이용해 보세요.";
       case PARK_TRAIL -> "포장된 산책로를 이용하시고, 경사 구간에서는 주의해 주세요.";
       case LODGING -> "장애인 전용 객실이나 엘리베이터 접근성을 데스크에 문의하세요.";

@@ -1,6 +1,7 @@
 package com.barrierfree.bf.place.dto;
 
 import com.barrierfree.bf.place.domain.PlaceCategory;
+import java.util.List;
 
 public record PlaceDetailResponse(
     String placeId,
@@ -13,6 +14,7 @@ public record PlaceDetailResponse(
     String phoneNumber,
     String websiteUri,
     Boolean openNow,
+    List<String> weekdayDescriptions,
     Integer reviewCount,
     Boolean wheelchairAccessibleEntrance,
     Boolean wheelchairAccessibleParking,

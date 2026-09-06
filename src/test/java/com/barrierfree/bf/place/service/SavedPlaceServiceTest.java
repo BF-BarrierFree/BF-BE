@@ -151,6 +151,7 @@ class SavedPlaceServiceTest {
                 null,
                 null,
                 null,
+                null,
                 "GOOGLE_PLACES_ONLY",
                 "https://example.com/new.jpg"));
 

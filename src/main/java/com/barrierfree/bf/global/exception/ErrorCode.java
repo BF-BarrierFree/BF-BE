@@ -26,6 +26,9 @@ public enum ErrorCode {
     // --- 공지사항 관련 에러 (Notice) ---
     NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "공지사항을 찾을 수 없습니다."),
 
+    // --- 1:1 문의 관련 에러 (Inquiry) ---
+    INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "Q001", "문의 내역을 찾을 수 없습니다."),
+
     // --- 인증 관련 에러 (Auth/Kakao) ---
     KAKAO_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A001", "카카오 로그인 처리에 실패했습니다."),
     KAKAO_USER_INFO_FAILED(HttpStatus.BAD_GATEWAY, "A002", "카카오 사용자 정보를 가져오지 못했습니다."),
