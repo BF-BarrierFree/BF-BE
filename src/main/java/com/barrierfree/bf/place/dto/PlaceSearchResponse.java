@@ -34,5 +34,6 @@ public record PlaceSearchResponse(
       Boolean restArea,
       Boolean subtitleService,
       String accessibilityDataSource,
-      String photoUrl) {}
+      String photoUrl,
+      List<String> photoUrls) {}
 }

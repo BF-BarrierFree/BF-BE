@@ -42,6 +42,7 @@ public class PlaceService {
   private static final String TEXT_SEARCH_URL =
       "https://places.googleapis.com/v1/places:searchText";
   private static final int MAX_CANDIDATE_QUERY_COUNT = 3;
+  private static final int MAX_PHOTO_URL_COUNT = 7;
   private static final String AUTOCOMPLETE_FIELD_MASK =
       "suggestions.placePrediction.placeId,"
           + "suggestions.placePrediction.text.text,"
@@ -294,6 +295,29 @@ public class PlaceService {
           }
         }
       }
+
+      if (places.isEmpty()) {
+        for (PlaceSearchResponse.PlaceSummary summary :
+            searchGoogleAutocompleteDetails(
+                keyword,
+                category,
+                lat,
+                lng,
+                radius,
+                normalizedPageSize,
+                accessibilityFilterRequested,
+                publicInfoCache)) {
+          if (places.size() >= normalizedPageSize) {
+            break;
+          }
+          if (matchesUserTypes(summary, userTypes)
+              && matchesFacilities(summary, facilities)
+              && isWithinSearchArea(summary, lat, lng, radius)
+              && !containsSamePlace(places, summary)) {
+            places.add(summary);
+          }
+        }
+      }
     }
 
     while (places.size() < normalizedPageSize) {
@@ -303,7 +327,15 @@ public class PlaceService {
         requestBody.remove("pageToken");
       }
 
-      googleResponse = requestGoogleTextSearch(requestBody);
+      try {
+        googleResponse = requestGoogleTextSearch(requestBody);
+      } catch (CustomException e) {
+        log.warn(
+            "Google Places fallback text search failed. keyword={}, errorCode={}",
+            keyword,
+            e.getErrorCode().getCode());
+        break;
+      }
 
       if (googleResponse != null && googleResponse.getPlaces() != null) {
         List<PlaceSearchResponse.PlaceSummary> pagePlaces =
@@ -707,6 +739,8 @@ public class PlaceService {
                 publicInfoCache)
             : PublicBarrierFreeInfo.empty();
 
+    List<String> photoUrls = buildPhotoUrls(place);
+
     return new PlaceSearchResponse.PlaceSummary(
         place.getId(),
         name,
@@ -743,7 +777,8 @@ public class PlaceService {
         publicInfo.restArea(),
         publicInfo.subtitleService(),
         resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested),
-        buildPhotoUrl(place));
+        photoUrls.isEmpty() ? null : photoUrls.getFirst(),
+        photoUrls);
   }
 
   private PlaceSearchResponse.PlaceSummary toPlaceSummary(
@@ -778,25 +813,97 @@ public class PlaceService {
         publicInfo.restArea(),
         publicInfo.subtitleService(),
         resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested),
+        null,
         null);
   }
 
   private String buildPhotoUrl(GooglePlaceResponseDto.Place place) {
+    List<String> photoUrls = buildPhotoUrls(place);
+    return photoUrls.isEmpty() ? null : photoUrls.getFirst();
+  }
+
+  private List<String> buildPhotoUrls(GooglePlaceResponseDto.Place place) {
     if (place == null || place.getPhotos() == null || place.getPhotos().isEmpty()) {
-      return null;
+      return List.of();
     }
 
-    String photoName = place.getPhotos().getFirst().getName();
-    if (photoName == null || photoName.isBlank()) {
-      return null;
+    return place.getPhotos().stream()
+        .map(GooglePlaceResponseDto.Photo::getName)
+        .filter(photoName -> photoName != null && !photoName.isBlank())
+        .limit(MAX_PHOTO_URL_COUNT)
+        .map(
+            photoName ->
+                UriComponentsBuilder.fromPath("/api/v1/places/photos")
+                    .queryParam("name", photoName)
+                    .queryParam("maxWidthPx", 800)
+                    .build()
+                    .encode()
+                    .toUriString())
+        .toList();
+  }
+
+  private List<PlaceSearchResponse.PlaceSummary> searchGoogleAutocompleteDetails(
+      String keyword,
+      PlaceCategory category,
+      Double lat,
+      Double lng,
+      Integer radius,
+      int limit,
+      boolean accessibilityFilterRequested,
+      Map<String, PublicBarrierFreeInfo> publicInfoCache) {
+    Map<String, Object> requestBody = new HashMap<>();
+    requestBody.put("input", keyword);
+    requestBody.put("languageCode", "ko");
+    requestBody.put("includedRegionCodes", List.of("kr"));
+
+    if (category != PlaceCategory.ETC) {
+      requestBody.put("includedPrimaryTypes", category.getGoogleTypes());
+    }
+    putLocationBias(requestBody, lat, lng, radius);
+
+    GoogleAutocompleteResponseDto autocompleteResponse;
+    try {
+      autocompleteResponse = requestGoogleAutocomplete(requestBody);
+    } catch (CustomException e) {
+      log.warn(
+          "Google Places autocomplete details fallback failed. keyword={}, errorCode={}",
+          keyword,
+          e.getErrorCode().getCode());
+      return List.of();
     }
 
-    return UriComponentsBuilder.fromPath("/api/v1/places/photos")
-        .queryParam("name", photoName)
-        .queryParam("maxWidthPx", 800)
-        .build()
-        .encode()
-        .toUriString();
+    if (autocompleteResponse == null || autocompleteResponse.getSuggestions() == null) {
+      return List.of();
+    }
+
+    List<PlaceSearchResponse.PlaceSummary> summaries = new ArrayList<>();
+    for (GoogleAutocompleteResponseDto.Suggestion suggestion :
+        autocompleteResponse.getSuggestions()) {
+      if (summaries.size() >= limit) {
+        break;
+      }
+      if (suggestion == null || suggestion.getPlacePrediction() == null) {
+        continue;
+      }
+
+      String placeId = suggestion.getPlacePrediction().getPlaceId();
+      if (placeId == null || placeId.isBlank() || containsPlaceId(summaries, placeId)) {
+        continue;
+      }
+
+      try {
+        GooglePlaceResponseDto.Place place = placeTestService.getPlaceDetails(placeId);
+        if (place != null) {
+          PlaceCategory responseCategory = resolveResponseCategory(place, category);
+          summaries.add(
+              toPlaceSummary(
+                  place, responseCategory, accessibilityFilterRequested, publicInfoCache));
+        }
+      } catch (RuntimeException e) {
+        log.warn("Google Places details fallback failed. placeId={}", placeId, e);
+      }
+    }
+    return summaries;
   }
 
   private Integer getReviewCount(GooglePlaceResponseDto.Place place) {
@@ -950,6 +1057,18 @@ public class PlaceService {
   private boolean containsSamePlace(
       List<PlaceSearchResponse.PlaceSummary> places, PlaceSearchResponse.PlaceSummary target) {
     return places.stream().anyMatch(place -> isSamePlace(place, target));
+  }
+
+  private boolean containsPlaceId(List<PlaceSearchResponse.PlaceSummary> places, String placeId) {
+    return places.stream().anyMatch(place -> placeId.equals(place.placeId()));
+  }
+
+  private PlaceCategory resolveResponseCategory(
+      GooglePlaceResponseDto.Place place, PlaceCategory requestedCategory) {
+    if (requestedCategory != null && requestedCategory != PlaceCategory.ETC) {
+      return requestedCategory;
+    }
+    return PlaceCategory.inferFromTypes(place.getTypes());
   }
 
   private boolean isSamePlace(

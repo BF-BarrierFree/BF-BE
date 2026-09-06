@@ -83,6 +83,18 @@ class PlaceServiceTest {
     ReflectionTestUtils.setField(place, "regularOpeningHours", openingHours);
     ReflectionTestUtils.setField(place, "nationalPhoneNumber", "02-123-4567");
     ReflectionTestUtils.setField(place, "userRatingCount", 123);
+    ReflectionTestUtils.setField(
+        place,
+        "photos",
+        List.of(
+            photo("places/place-1/photos/photo-1"),
+            photo("places/place-1/photos/photo-2"),
+            photo("places/place-1/photos/photo-3"),
+            photo("places/place-1/photos/photo-4"),
+            photo("places/place-1/photos/photo-5"),
+            photo("places/place-1/photos/photo-6"),
+            photo("places/place-1/photos/photo-7"),
+            photo("places/place-1/photos/photo-8")));
 
     PlaceSearchResponse.PlaceSummary summary =
         ReflectionTestUtils.invokeMethod(
@@ -93,6 +105,16 @@ class PlaceServiceTest {
     assertThat(summary.weekdayDescriptions())
         .containsExactly("Monday: 10:00 AM-9:00 PM", "Tuesday: 10:00 AM-9:00 PM");
     assertThat(summary.reviewCount()).isEqualTo(123);
+    assertThat(summary.photoUrl()).contains("photo-1");
+    assertThat(summary.photoUrls()).hasSize(7);
+    assertThat(summary.photoUrls().getFirst()).isEqualTo(summary.photoUrl());
+    assertThat(summary.photoUrls().getLast()).contains("photo-7");
     verify(tourBarrierFreeService, never()).findByPlaceNameAndLocation(any(), any(), any());
+  }
+
+  private GooglePlaceResponseDto.Photo photo(String name) {
+    GooglePlaceResponseDto.Photo photo = new GooglePlaceResponseDto.Photo();
+    ReflectionTestUtils.setField(photo, "name", name);
+    return photo;
   }
 }
