@@ -42,6 +42,7 @@ public class PlaceService {
   private static final String TEXT_SEARCH_URL =
       "https://places.googleapis.com/v1/places:searchText";
   private static final int MAX_CANDIDATE_QUERY_COUNT = 3;
+  private static final int MAX_PHOTO_URL_COUNT = 7;
   private static final String AUTOCOMPLETE_FIELD_MASK =
       "suggestions.placePrediction.placeId,"
           + "suggestions.placePrediction.text.text,"
@@ -707,6 +708,8 @@ public class PlaceService {
                 publicInfoCache)
             : PublicBarrierFreeInfo.empty();
 
+    List<String> photoUrls = buildPhotoUrls(place);
+
     return new PlaceSearchResponse.PlaceSummary(
         place.getId(),
         name,
@@ -743,7 +746,8 @@ public class PlaceService {
         publicInfo.restArea(),
         publicInfo.subtitleService(),
         resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested),
-        buildPhotoUrl(place));
+        photoUrls.isEmpty() ? null : photoUrls.getFirst(),
+        photoUrls);
   }
 
   private PlaceSearchResponse.PlaceSummary toPlaceSummary(
@@ -778,25 +782,33 @@ public class PlaceService {
         publicInfo.restArea(),
         publicInfo.subtitleService(),
         resolveAccessibilityDataSource(publicInfo, accessibilityFilterRequested),
+        null,
         null);
   }
 
   private String buildPhotoUrl(GooglePlaceResponseDto.Place place) {
+    List<String> photoUrls = buildPhotoUrls(place);
+    return photoUrls.isEmpty() ? null : photoUrls.getFirst();
+  }
+
+  private List<String> buildPhotoUrls(GooglePlaceResponseDto.Place place) {
     if (place == null || place.getPhotos() == null || place.getPhotos().isEmpty()) {
-      return null;
+      return List.of();
     }
 
-    String photoName = place.getPhotos().getFirst().getName();
-    if (photoName == null || photoName.isBlank()) {
-      return null;
-    }
-
-    return UriComponentsBuilder.fromPath("/api/v1/places/photos")
-        .queryParam("name", photoName)
-        .queryParam("maxWidthPx", 800)
-        .build()
-        .encode()
-        .toUriString();
+    return place.getPhotos().stream()
+        .map(GooglePlaceResponseDto.Photo::getName)
+        .filter(photoName -> photoName != null && !photoName.isBlank())
+        .limit(MAX_PHOTO_URL_COUNT)
+        .map(
+            photoName ->
+                UriComponentsBuilder.fromPath("/api/v1/places/photos")
+                    .queryParam("name", photoName)
+                    .queryParam("maxWidthPx", 800)
+                    .build()
+                    .encode()
+                    .toUriString())
+        .toList();
   }
 
   private Integer getReviewCount(GooglePlaceResponseDto.Place place) {
