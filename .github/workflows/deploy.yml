@@ -26,52 +26,39 @@ jobs:
       - name: Deploy with SSM
         shell: bash
         run: |
-          cat > ssm-commands.sh <<'SCRIPT'
-          bash <<'REMOTE_SCRIPT'
-          set -euxo pipefail
-
-          APP_DIR="/home/ubuntu/BF-BE"
-          SERVICE_NAME="bf-be"
-
-          echo "=== Starting deployment ==="
-          date
-          whoami
-
-          if [ ! -d "$APP_DIR/.git" ]; then
-            echo "Repository not found at $APP_DIR"
-            exit 1
-          fi
-
-          sudo -u ubuntu git -C "$APP_DIR" fetch --prune origin main
-          sudo -u ubuntu git -C "$APP_DIR" checkout main
-          sudo -u ubuntu git -C "$APP_DIR" reset --hard origin/main
-
-          echo "=== Deployed commit ==="
-          sudo -u ubuntu git -C "$APP_DIR" log -1 --oneline
-
-          sudo -u ubuntu bash -lc "cd '$APP_DIR' && chmod +x ./gradlew && ./gradlew clean bootJar -x test --no-daemon"
-
-          systemctl restart "$SERVICE_NAME"
-          sleep 10
-
-          echo "=== Service status ==="
-          systemctl status "$SERVICE_NAME" --no-pager -l || true
-
-          echo "=== Recent service logs ==="
-          journalctl -u "$SERVICE_NAME" -n 100 --no-pager || true
-
-          systemctl is-active --quiet "$SERVICE_NAME"
-          echo "=== Deployment successful ==="
-          REMOTE_SCRIPT
-          SCRIPT
-
-          PARAMETERS=$(jq -n --rawfile script ssm-commands.sh '{commands: [$script]}')
+          cat > ssm-parameters.json <<'JSON'
+          {
+            "commands": [
+              "set -ex",
+              "APP_DIR=/home/ubuntu/BF-BE",
+              "SERVICE_NAME=bf-be",
+              "echo '=== Starting deployment ==='",
+              "date",
+              "whoami",
+              "test -d \"$APP_DIR/.git\"",
+              "sudo -u ubuntu git -C \"$APP_DIR\" fetch --prune origin main",
+              "sudo -u ubuntu git -C \"$APP_DIR\" checkout main",
+              "sudo -u ubuntu git -C \"$APP_DIR\" reset --hard origin/main",
+              "echo '=== Deployed commit ==='",
+              "sudo -u ubuntu git -C \"$APP_DIR\" log -1 --oneline",
+              "sudo -u ubuntu sh -c 'cd /home/ubuntu/BF-BE && chmod +x ./gradlew && ./gradlew clean bootJar -x test --no-daemon'",
+              "systemctl restart \"$SERVICE_NAME\"",
+              "sleep 10",
+              "echo '=== Service status ==='",
+              "systemctl status \"$SERVICE_NAME\" --no-pager -l || true",
+              "echo '=== Recent service logs ==='",
+              "journalctl -u \"$SERVICE_NAME\" -n 100 --no-pager || true",
+              "systemctl is-active --quiet \"$SERVICE_NAME\"",
+              "echo '=== Deployment successful ==='"
+            ]
+          }
+          JSON
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
             --timeout-seconds 900 \
-            --parameters "$PARAMETERS" \
+            --parameters file://ssm-parameters.json \
             --query "Command.CommandId" \
             --output text)
 
