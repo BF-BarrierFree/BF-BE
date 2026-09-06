@@ -1,5 +1,7 @@
 package com.barrierfree.bf.place.service;
 
+import com.barrierfree.bf.global.exception.CustomException;
+import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.place.domain.PlaceCategory;
 import com.barrierfree.bf.place.dto.PlaceSearchHistoryResponse;
 import com.barrierfree.bf.place.repository.PlaceSearchHistoryJdbcRepository;
@@ -23,6 +25,17 @@ public class PlaceSearchHistoryService {
   public PlaceSearchHistoryResponse getRecent(Integer size) {
     int normalizedSize = normalizeSize(size);
     return new PlaceSearchHistoryResponse(repository.findRecent(normalizedSize));
+  }
+
+  public void delete(Long historyId) {
+    if (historyId == null || historyId < 1) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+    repository.deleteById(historyId);
+  }
+
+  public void deleteAll() {
+    repository.deleteAll();
   }
 
   private int normalizeSize(Integer size) {
