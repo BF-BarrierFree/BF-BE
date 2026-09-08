@@ -35,12 +35,21 @@ public class SavedPlaceList extends BaseEntity {
   @Column(nullable = false, length = 50)
   private String name;
 
+  @Column(length = 20)
+  private String emoji;
+
   public SavedPlaceList(User user, String name) {
-    this.user = user;
-    this.name = name;
+    this(user, name, null);
   }
 
-  public void updateName(String name) {
+  public SavedPlaceList(User user, String name, String emoji) {
+    this.user = user;
     this.name = name;
+    this.emoji = emoji;
+  }
+
+  public void update(String name, String emoji) {
+    this.name = name;
+    this.emoji = emoji;
   }
 }
