@@ -13,6 +13,7 @@ import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.place.domain.PlaceCategory;
 import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.SavedPlaceCreateRequest;
+import com.barrierfree.bf.place.dto.SavedPlaceListCreateRequest;
 import com.barrierfree.bf.place.dto.SavedPlaceListUpdateRequest;
 import com.barrierfree.bf.place.dto.SavedPlaceResponse;
 import com.barrierfree.bf.place.entity.SavedPlace;
@@ -40,9 +41,30 @@ class SavedPlaceServiceTest {
           savedPlaceListRepository, savedPlaceRepository, userRepository, placeService);
 
   @Test
+  void createsSavedPlaceListWithEmoji() {
+    User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
+
+    when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
+    when(savedPlaceListRepository.save(any(SavedPlaceList.class)))
+        .thenAnswer(
+            invocation -> {
+              SavedPlaceList placeList = invocation.getArgument(0);
+              ReflectionTestUtils.setField(placeList, "id", 10L);
+              return placeList;
+            });
+
+    var response =
+        service.createList(1L, new SavedPlaceListCreateRequest(" favorites ", "\uD83D\uDCCD"));
+
+    assertThat(response.id()).isEqualTo(10L);
+    assertThat(response.name()).isEqualTo("favorites");
+    assertThat(response.emoji()).isEqualTo("\uD83D\uDCCD");
+  }
+
+  @Test
   void savesPlaceSnapshotInUserList() {
     User user = User.builder().socialId("kakao-1").nickname("tester").role(Role.USER).build();
-    SavedPlaceList placeList = new SavedPlaceList(user, "favorites");
+    SavedPlaceList placeList = new SavedPlaceList(user, "favorites", "\u2B50");
     ReflectionTestUtils.setField(placeList, "id", 10L);
 
     when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
@@ -197,10 +219,12 @@ class SavedPlaceServiceTest {
     when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
     when(savedPlaceListRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(placeList));
 
-    var response = service.updateList(1L, 10L, new SavedPlaceListUpdateRequest("weekend"));
+    var response =
+        service.updateList(1L, 10L, new SavedPlaceListUpdateRequest("weekend", "\uD83D\uDCCD"));
 
     assertThat(response.id()).isEqualTo(10L);
     assertThat(response.name()).isEqualTo("weekend");
+    assertThat(response.emoji()).isEqualTo("\uD83D\uDCCD");
   }
 
   @Test
