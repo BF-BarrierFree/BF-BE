@@ -1,12 +1,15 @@
 package com.barrierfree.bf.place.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.barrierfree.bf.global.exception.CustomException;
+import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.place.dto.GooglePlaceResponseDto;
 import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchResponse;
@@ -27,6 +30,26 @@ class PlaceServiceTest {
       Mockito.mock(TourBarrierFreeService.class);
   private final PlaceService service =
       new PlaceService(null, placeTestService, placeSearchHistoryService, tourBarrierFreeService);
+
+  @Test
+  void rejectsCategorySearchWithoutValidMapArea() {
+    assertThatThrownBy(
+            () -> service.searchByCategory("CAFE", null, 127.0, 1000, 20, List.of(), List.of()))
+        .isInstanceOfSatisfying(
+            CustomException.class,
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+  }
+
+  @Test
+  void rejectsEtcCategorySearch() {
+    assertThatThrownBy(
+            () -> service.searchByCategory("ETC", 37.5, 127.0, 1000, 20, List.of(), List.of()))
+        .isInstanceOfSatisfying(
+            CustomException.class,
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+  }
 
   @Test
   void includesWeekdayDescriptionsInPlaceDetail() {

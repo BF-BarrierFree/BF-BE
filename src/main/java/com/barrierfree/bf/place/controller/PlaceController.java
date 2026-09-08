@@ -47,8 +47,7 @@ public class PlaceController {
           @RequestParam(required = false)
           String category,
       @Parameter(description = "위도", example = "37.511") @RequestParam(required = false) Double lat,
-      @Parameter(description = "경도", example = "127.098") @RequestParam(required = false)
-          Double lng,
+      @Parameter(description = "경도", example = "127.098") @RequestParam(required = false) Double lng,
       @Parameter(description = "bias 반경(m)", example = "500")
           @RequestParam(defaultValue = "500", required = false)
           Integer radius) {
@@ -61,37 +60,25 @@ public class PlaceController {
   @GetMapping("/search")
   @Operation(
       summary = "장소 검색",
-      description = "키워드와 카테고리로 장소를 검색합니다. userTypes/facilities는 콤마로 구분해 입력합니다.")
+      description = "키워드로 장소를 검색합니다. 카테고리칩 검색은 /category-search를 사용합니다.")
   public ApiResponse<PlaceSearchResponse> search(
       @Parameter(description = "검색어", example = "롯데") @RequestParam(required = false)
           String keyword,
       @Parameter(description = "keyword alias", example = "롯데") @RequestParam(required = false)
           String query,
-      @Parameter(
-              description =
-                  "장소 카테고리. FOOD, CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY, ETC",
-              example = "CAFE")
-          @RequestParam(required = false)
-          String category,
       @Parameter(description = "위도", example = "37.511") @RequestParam(required = false) Double lat,
-      @Parameter(description = "경도", example = "127.098") @RequestParam(required = false)
-          Double lng,
+      @Parameter(description = "경도", example = "127.098") @RequestParam(required = false) Double lng,
       @Parameter(description = "bias 반경(m)", example = "500")
           @RequestParam(defaultValue = "500", required = false)
           Integer radius,
-      @Parameter(description = "한 번에 반환할 개수", example = "10")
+      @Parameter(description = "한 번에 반환할 개수", example = "20")
           @RequestParam(defaultValue = "20", required = false)
           Integer pageSize,
       @Parameter(description = "다음 페이지 토큰") @RequestParam(required = false) String pageToken,
-      @Parameter(
-              description = "이용자 유형을 콤마로 입력. 예: 휠체어 이용자,유아차 동반,인지/발달 장애,시각 장애,청각 장애",
-              schema = @Schema(type = "string"))
+      @Parameter(description = "이용자 유형을 콤마로 입력", schema = @Schema(type = "string"))
           @RequestParam(required = false)
           String userTypes,
-      @Parameter(
-              description =
-                  "필요 시설을 콤마로 입력. 예: 엘리베이터,경사로,장애인화장실,수어통역,장애인주차장,자막 서비스,전동 휠체어 대여,수유실,휠체어 좌석,휴게공간,음성안내,점자블록",
-              schema = @Schema(type = "string"))
+      @Parameter(description = "필요 시설을 콤마로 입력", schema = @Schema(type = "string"))
           @RequestParam(required = false)
           String facilities) {
     String searchKeyword = keyword != null ? keyword : query;
@@ -100,7 +87,7 @@ public class PlaceController {
     PlaceSearchResponse response =
         placeService.search(
             searchKeyword,
-            category,
+            null,
             lat,
             lng,
             radius,
@@ -109,6 +96,39 @@ public class PlaceController {
             parsedUserTypes,
             parsedFacilities);
     return ApiResponse.success(response, "장소 검색에 성공했습니다.");
+  }
+
+  @GetMapping("/category-search")
+  @Operation(
+      summary = "카테고리 기반 장소 검색",
+      description = "지도 중심 좌표와 반경 안에서 카테고리칩에 해당하는 장소를 검색합니다.")
+  public ApiResponse<PlaceSearchResponse> searchByCategory(
+      @Parameter(
+              description =
+                  "장소 카테고리. FOOD, CAFE, TOUR_CULTURE, PARK_TRAIL, LODGING, TRANSPORTATION, PUBLIC_FACILITY",
+              example = "CAFE")
+          @RequestParam
+          String category,
+      @Parameter(description = "지도 중심 위도", example = "37.511") @RequestParam Double lat,
+      @Parameter(description = "지도 중심 경도", example = "127.098") @RequestParam Double lng,
+      @Parameter(description = "검색 반경(m). 1~50000", example = "1000")
+          @RequestParam(defaultValue = "1000", required = false)
+          Integer radius,
+      @Parameter(description = "반환할 최대 개수. 최대 100", example = "50")
+          @RequestParam(defaultValue = "100", required = false)
+          Integer pageSize,
+      @Parameter(description = "이용자 유형을 콤마로 입력", schema = @Schema(type = "string"))
+          @RequestParam(required = false)
+          String userTypes,
+      @Parameter(description = "필요 시설을 콤마로 입력", schema = @Schema(type = "string"))
+          @RequestParam(required = false)
+          String facilities) {
+    List<MobilityType> parsedUserTypes = parseUserTypes(userTypes);
+    List<FacilityType> parsedFacilities = parseFacilities(facilities);
+    PlaceSearchResponse response =
+        placeService.searchByCategory(
+            category, lat, lng, radius, pageSize, parsedUserTypes, parsedFacilities);
+    return ApiResponse.success(response, "카테고리 기반 장소 검색에 성공했습니다.");
   }
 
   @GetMapping("/{placeId}")
@@ -121,7 +141,7 @@ public class PlaceController {
   }
 
   @GetMapping("/photos")
-  @Operation(summary = "장소 사진 조회", description = "Google Places 사진을 백엔드에서 대신 조회해 반환합니다.")
+  @Operation(summary = "장소 사진 조회", description = "Google Places 사진을 백엔드에서 프록시 조회해 반환합니다.")
   public ResponseEntity<byte[]> getPhoto(
       @Parameter(description = "Google Places photo name", example = "places/ChIJ.../photos/...")
           @RequestParam
