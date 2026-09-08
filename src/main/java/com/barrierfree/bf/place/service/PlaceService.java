@@ -41,14 +41,18 @@ public class PlaceService {
       "https://places.googleapis.com/v1/places:autocomplete";
   private static final String TEXT_SEARCH_URL =
       "https://places.googleapis.com/v1/places:searchText";
+  private static final String NEARBY_SEARCH_URL =
+      "https://places.googleapis.com/v1/places:searchNearby";
   private static final int MAX_CANDIDATE_QUERY_COUNT = 3;
   private static final int MAX_PHOTO_URL_COUNT = 7;
+  private static final int GOOGLE_NEARBY_MAX_RESULT_COUNT = 20;
+  private static final int CATEGORY_SEARCH_MAX_RESULT_COUNT = 100;
   private static final String AUTOCOMPLETE_FIELD_MASK =
       "suggestions.placePrediction.placeId,"
           + "suggestions.placePrediction.text.text,"
           + "suggestions.placePrediction.structuredFormat.mainText.text,"
           + "suggestions.placePrediction.structuredFormat.secondaryText.text";
-  private static final String PLACE_FIELD_MASK =
+  private static final String PLACE_RESULT_FIELD_MASK =
       "places.id,"
           + "places.displayName,"
           + "places.formattedAddress,"
@@ -57,8 +61,9 @@ public class PlaceService {
           + "places.regularOpeningHours,"
           + "places.nationalPhoneNumber,"
           + "places.userRatingCount,"
-          + "places.photos,"
-          + "nextPageToken";
+          + "places.photos";
+  private static final String PLACE_FIELD_MASK = PLACE_RESULT_FIELD_MASK + ",nextPageToken";
+  private static final String NEARBY_FIELD_MASK = PLACE_RESULT_FIELD_MASK;
 
   @Value("${google.places.api-key}")
   private String googleApiKey;
@@ -428,6 +433,64 @@ public class PlaceService {
         places, nextPageToken, nextPageToken != null && !nextPageToken.isBlank());
   }
 
+  public PlaceSearchResponse searchByCategory(
+      String categoryValue,
+      Double lat,
+      Double lng,
+      Integer radius,
+      Integer pageSize,
+      List<MobilityType> userTypes,
+      List<FacilityType> facilities) {
+    validateMapSearchArea(lat, lng, radius);
+    PlaceCategory category = PlaceCategory.from(categoryValue);
+    if (category == PlaceCategory.ETC) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    int limit = normalizeCategorySearchLimit(pageSize);
+    boolean accessibilityFilterRequested = hasAccessibilityFilter(userTypes, facilities);
+    Map<String, PublicBarrierFreeInfo> publicInfoCache = new HashMap<>();
+    List<PlaceSearchResponse.PlaceSummary> places = new ArrayList<>();
+
+    for (String googleType : category.getGoogleTypes()) {
+      if (places.size() >= limit) {
+        break;
+      }
+
+      Map<String, Object> requestBody = new HashMap<>();
+      requestBody.put("languageCode", "ko");
+      requestBody.put("regionCode", "KR");
+      requestBody.put("rankPreference", "DISTANCE");
+      requestBody.put("includedTypes", List.of(googleType));
+      requestBody.put(
+          "maxResultCount", Math.min(GOOGLE_NEARBY_MAX_RESULT_COUNT, limit - places.size()));
+      putLocationRestriction(requestBody, lat, lng, radius);
+
+      GooglePlaceResponseDto googleResponse = requestGoogleNearbySearch(requestBody);
+      if (googleResponse == null || googleResponse.getPlaces() == null) {
+        continue;
+      }
+
+      for (GooglePlaceResponseDto.Place place : googleResponse.getPlaces()) {
+        if (places.size() >= limit) {
+          break;
+        }
+
+        PlaceSearchResponse.PlaceSummary summary =
+            toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache);
+        if (matchesUserTypes(summary, userTypes)
+            && matchesFacilities(summary, facilities)
+            && isWithinSearchArea(summary, lat, lng, radius)
+            && !containsSamePlace(places, summary)
+            && !containsPlaceId(places, summary.placeId())) {
+          places.add(summary);
+        }
+      }
+    }
+
+    return new PlaceSearchResponse(places, null, false);
+  }
+
   public ResponseEntity<byte[]> getPhoto(String photoName, Integer maxWidthPx) {
     String normalizedPhotoName = normalizePhotoName(photoName);
     String photoUri = resolvePhotoUrl(normalizedPhotoName, maxWidthPx);
@@ -467,6 +530,28 @@ public class PlaceService {
           .block();
     } catch (RuntimeException e) {
       throw toGoogleMapException("Text Search", requestBody, e);
+    }
+  }
+
+  private GooglePlaceResponseDto requestGoogleNearbySearch(Map<String, Object> requestBody) {
+    try {
+      return webClient
+          .post()
+          .uri(NEARBY_SEARCH_URL)
+          .header("X-Goog-Api-Key", googleApiKey)
+          .header("X-Goog-FieldMask", NEARBY_FIELD_MASK)
+          .bodyValue(requestBody)
+          .retrieve()
+          .onStatus(
+              HttpStatusCode::isError,
+              response -> {
+                log.error("Google Places Nearby Search failed. status={}", response.statusCode());
+                return Mono.error(new CustomException(ErrorCode.GOOGLE_MAP_API_FAILED));
+              })
+          .bodyToMono(GooglePlaceResponseDto.class)
+          .block();
+    } catch (RuntimeException e) {
+      throw toGoogleMapException("Nearby Search", requestBody, e);
     }
   }
 
@@ -1060,6 +1145,9 @@ public class PlaceService {
   }
 
   private boolean containsPlaceId(List<PlaceSearchResponse.PlaceSummary> places, String placeId) {
+    if (placeId == null || placeId.isBlank()) {
+      return false;
+    }
     return places.stream().anyMatch(place -> placeId.equals(place.placeId()));
   }
 
@@ -1164,10 +1252,37 @@ public class PlaceService {
     requestBody.put("locationBias", Map.of("circle", circle));
   }
 
+  private void putLocationRestriction(
+      Map<String, Object> requestBody, Double lat, Double lng, Integer radius) {
+    Map<String, Object> center = new HashMap<>();
+    center.put("latitude", lat);
+    center.put("longitude", lng);
+
+    Map<String, Object> circle = new HashMap<>();
+    circle.put("center", center);
+    circle.put("radius", radius.doubleValue());
+
+    requestBody.put("locationRestriction", Map.of("circle", circle));
+  }
+
   private void validateKeyword(String keyword) {
     if (keyword == null || keyword.isBlank()) {
       throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
     }
+  }
+
+  private void validateMapSearchArea(Double lat, Double lng, Integer radius) {
+    if (!isLatitude(lat) || !isLongitude(lng) || radius == null || radius < 1 || radius > 50000) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+  }
+
+  private boolean isLatitude(Double value) {
+    return value != null && Double.isFinite(value) && value >= -90.0 && value <= 90.0;
+  }
+
+  private boolean isLongitude(Double value) {
+    return value != null && Double.isFinite(value) && value >= -180.0 && value <= 180.0;
   }
 
   private int normalizePageSize(Integer pageSize) {
@@ -1178,5 +1293,15 @@ public class PlaceService {
       throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
     }
     return Math.min(pageSize, 20);
+  }
+
+  private int normalizeCategorySearchLimit(Integer pageSize) {
+    if (pageSize == null) {
+      return CATEGORY_SEARCH_MAX_RESULT_COUNT;
+    }
+    if (pageSize < 1) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+    return Math.min(pageSize, CATEGORY_SEARCH_MAX_RESULT_COUNT);
   }
 }

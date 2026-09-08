@@ -5,5 +5,5 @@ import java.util.List;
 
 public record SavedPlaceListResponse(List<SavedPlaceListSummary> lists) {
 
-  public record SavedPlaceListSummary(Long id, String name, LocalDateTime createdAt) {}
+  public record SavedPlaceListSummary(Long id, String name, String emoji, LocalDateTime createdAt) {}
 }

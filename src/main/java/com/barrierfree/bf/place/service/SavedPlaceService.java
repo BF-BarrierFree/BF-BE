@@ -37,8 +37,9 @@ public class SavedPlaceService {
       Long userId, SavedPlaceListCreateRequest request) {
     User user = findUser(userId);
     String name = normalizeRequiredText(request.name());
+    String emoji = normalizeOptionalText(request.emoji());
 
-    SavedPlaceList placeList = savedPlaceListRepository.save(new SavedPlaceList(user, name));
+    SavedPlaceList placeList = savedPlaceListRepository.save(new SavedPlaceList(user, name, emoji));
     return toListSummary(placeList);
   }
 
@@ -55,7 +56,7 @@ public class SavedPlaceService {
   public SavedPlaceListResponse.SavedPlaceListSummary updateList(
       Long userId, Long listId, SavedPlaceListUpdateRequest request) {
     SavedPlaceList placeList = findPlaceList(userId, listId);
-    placeList.updateName(normalizeRequiredText(request.name()));
+    placeList.update(normalizeRequiredText(request.name()), normalizeOptionalText(request.emoji()));
     return toListSummary(placeList);
   }
 
@@ -203,7 +204,7 @@ public class SavedPlaceService {
 
   private SavedPlaceListResponse.SavedPlaceListSummary toListSummary(SavedPlaceList placeList) {
     return new SavedPlaceListResponse.SavedPlaceListSummary(
-        placeList.getId(), placeList.getName(), placeList.getCreatedAt());
+        placeList.getId(), placeList.getName(), placeList.getEmoji(), placeList.getCreatedAt());
   }
 
   private SavedPlaceResponse.SavedPlaceSummary toPlaceSummary(SavedPlace savedPlace) {
