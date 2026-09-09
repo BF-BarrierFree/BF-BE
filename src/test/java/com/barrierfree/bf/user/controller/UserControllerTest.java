@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.barrierfree.bf.config.SecurityConfig;
@@ -86,7 +87,9 @@ class UserControllerTest {
                       return request;
                     })
                 .header("Authorization", "Bearer test-token"))
-        .andExpect(status().isOk());
+        .andExpect(status().isOk())
+        .andExpect(
+            jsonPath("$.data.profileImageUrl").value("https://cdn.example/profiles/profile.png"));
 
     verify(userService).updateMyProfileImage(userId, image);
   }

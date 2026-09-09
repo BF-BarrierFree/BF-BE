@@ -11,6 +11,8 @@ import com.barrierfree.bf.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -118,10 +120,29 @@ public class UserService {
             .findByIdAndIsDeletedFalse(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-    String profileImageUrl = imageService.uploadImage("profiles", image);
-    user.updateProfileImage(profileImageUrl);
+    String replacedObjectKey = imageService.extractObjectKey(user.getProfileImageUrl());
+    ImageService.UploadedImage uploadedImage = imageService.uploadImage("profiles", image);
 
-    return UserProfileImageResponse.builder().profileImageUrl(profileImageUrl).build();
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            if (replacedObjectKey != null && !replacedObjectKey.equals(uploadedImage.objectKey())) {
+              imageService.deleteImage(replacedObjectKey);
+            }
+          }
+
+          @Override
+          public void afterCompletion(int status) {
+            if (status != STATUS_COMMITTED) {
+              imageService.deleteImage(uploadedImage.objectKey());
+            }
+          }
+        });
+
+    user.updateProfileImage(uploadedImage.publicUrl());
+
+    return UserProfileImageResponse.builder().profileImageUrl(uploadedImage.publicUrl()).build();
   }
 
   /** 내 선호 필터 정보(온보딩 결과)를 조회합니다. */
