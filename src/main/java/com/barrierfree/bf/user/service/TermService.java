@@ -6,12 +6,12 @@ import java.util.List;
 
 public interface TermService {
 
-    // [관리자] 새로운 약관 생성
-    TermResponse createTerm(TermCreateRequest request);
+  // [관리자] 새로운 약관 생성
+  TermResponse createTerm(TermCreateRequest request);
 
-    // [공통] 현재 활성화된(최신 버전의) 모든 약관 목록 조회
-    List<TermResponse> getActiveTerms();
+  // [공통] 현재 활성화된(최신 버전의) 모든 약관 목록 조회
+  List<TermResponse> getActiveTerms();
 
-    // [공통] 특정 약관 상세 조회
-    TermResponse getTerm(Long termId);
+  // [공통] 특정 약관 상세 조회
+  TermResponse getTerm(Long termId);
 }

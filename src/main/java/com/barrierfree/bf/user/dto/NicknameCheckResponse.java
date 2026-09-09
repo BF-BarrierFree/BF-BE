@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class NicknameCheckResponse {
 
-    // true면 사용 가능(중복 안됨), false면 사용 불가(중복됨)
-    private boolean isAvailable;
+  // true면 사용 가능(중복 안됨), false면 사용 불가(중복됨)
+  private boolean isAvailable;
 }

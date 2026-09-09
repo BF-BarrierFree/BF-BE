@@ -22,26 +22,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TermController {
 
-    private final TermService termService;
+  private final TermService termService;
 
-    @Operation(summary = "[관리자] 새 약관 생성", description = "새로운 약관 개정판을 생성하여 등록합니다.")
-    @PostMapping
-    public ApiResponse<TermResponse> createTerm(@Valid @RequestBody TermCreateRequest request) {
-        TermResponse response = termService.createTerm(request);
-        return ApiResponse.success(response, "새로운 약관이 성공적으로 등록되었습니다.");
-    }
+  @Operation(summary = "[관리자] 새 약관 생성", description = "새로운 약관 개정판을 생성하여 등록합니다.")
+  @PostMapping
+  public ApiResponse<TermResponse> createTerm(@Valid @RequestBody TermCreateRequest request) {
+    TermResponse response = termService.createTerm(request);
+    return ApiResponse.success(response, "새로운 약관이 성공적으로 등록되었습니다.");
+  }
 
-    @Operation(summary = "활성 약관 전체 조회", description = "현재 유효한 최신 버전의 모든 약관 목록을 조회합니다.")
-    @GetMapping
-    public ApiResponse<List<TermResponse>> getActiveTerms() {
-        List<TermResponse> response = termService.getActiveTerms();
-        return ApiResponse.success(response, "활성화된 약관 목록 조회에 성공했습니다.");
-    }
+  @Operation(summary = "활성 약관 전체 조회", description = "현재 유효한 최신 버전의 모든 약관 목록을 조회합니다.")
+  @GetMapping
+  public ApiResponse<List<TermResponse>> getActiveTerms() {
+    List<TermResponse> response = termService.getActiveTerms();
+    return ApiResponse.success(response, "활성화된 약관 목록 조회에 성공했습니다.");
+  }
 
-    @Operation(summary = "특정 약관 상세 조회", description = "약관 ID를 기반으로 특정 약관의 상세 내용을 조회합니다.")
-    @GetMapping("/{termId}")
-    public ApiResponse<TermResponse> getTerm(@PathVariable Long termId) {
-        TermResponse response = termService.getTerm(termId);
-        return ApiResponse.success(response, "약관 상세 조회에 성공했습니다.");
-    }
+  @Operation(summary = "특정 약관 상세 조회", description = "약관 ID를 기반으로 특정 약관의 상세 내용을 조회합니다.")
+  @GetMapping("/{termId}")
+  public ApiResponse<TermResponse> getTerm(@PathVariable Long termId) {
+    TermResponse response = termService.getTerm(termId);
+    return ApiResponse.success(response, "약관 상세 조회에 성공했습니다.");
+  }
 }

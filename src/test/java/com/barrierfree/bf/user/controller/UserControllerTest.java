@@ -34,7 +34,8 @@ class UserControllerTest {
   @Test
   void acceptsNicknameAtMaximumLength() throws Exception {
     String nickname = "a".repeat(15);
-    when(userService.checkNicknameAvailability(nickname)).thenReturn(new NicknameCheckResponse(true));
+    when(userService.checkNicknameAvailability(nickname))
+        .thenReturn(new NicknameCheckResponse(true));
 
     mockMvc
         .perform(get("/api/v1/users/check-nickname").param("nickname", nickname))

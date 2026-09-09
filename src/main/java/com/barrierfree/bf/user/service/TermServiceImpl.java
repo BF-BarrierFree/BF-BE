@@ -17,21 +17,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class TermServiceImpl implements TermService {
 
-    private final TermRepository termRepository;
+  private final TermRepository termRepository;
 
-    @Override
-    @Transactional
-    public TermResponse createTerm(TermCreateRequest request) {
-        termRepository.lockTermKey(request.getTermKey());
+  @Override
+  @Transactional
+  public TermResponse createTerm(TermCreateRequest request) {
+    termRepository.lockTermKey(request.getTermKey());
 
-        Term latestRevision =
-            termRepository.findFirstByTermKeyOrderByVersionDesc(request.getTermKey()).orElse(null);
-        int nextVersion = latestRevision == null ? 1 : latestRevision.getVersion() + 1;
-        termRepository
-            .findByTermKeyAndIsActiveTrue(request.getTermKey())
-            .ifPresent(Term::deactivate);
+    Term latestRevision =
+        termRepository.findFirstByTermKeyOrderByVersionDesc(request.getTermKey()).orElse(null);
+    int nextVersion = latestRevision == null ? 1 : latestRevision.getVersion() + 1;
+    termRepository.findByTermKeyAndIsActiveTrue(request.getTermKey()).ifPresent(Term::deactivate);
 
-        Term term = Term.builder()
+    Term term =
+        Term.builder()
             .termKey(request.getTermKey())
             .title(request.getTitle())
             .content(request.getContent())
@@ -40,21 +39,23 @@ public class TermServiceImpl implements TermService {
             .isActive(true)
             .build();
 
-        Term savedTerm = termRepository.save(term);
-        return TermResponse.from(savedTerm);
-    }
+    Term savedTerm = termRepository.save(term);
+    return TermResponse.from(savedTerm);
+  }
 
-    @Override
-    public List<TermResponse> getActiveTerms() {
-        return termRepository.findAllByIsActiveTrue().stream()
-            .map(TermResponse::from)
-            .collect(Collectors.toList());
-    }
+  @Override
+  public List<TermResponse> getActiveTerms() {
+    return termRepository.findAllByIsActiveTrue().stream()
+        .map(TermResponse::from)
+        .collect(Collectors.toList());
+  }
 
-    @Override
-    public TermResponse getTerm(Long termId) {
-        Term term = termRepository.findById(termId)
+  @Override
+  public TermResponse getTerm(Long termId) {
+    Term term =
+        termRepository
+            .findById(termId)
             .orElseThrow(() -> new CustomException(ErrorCode.TERM_NOT_FOUND));
-        return TermResponse.from(term);
-    }
+    return TermResponse.from(term);
+  }
 }
