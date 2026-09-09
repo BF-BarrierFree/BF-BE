@@ -4,12 +4,16 @@ import com.barrierfree.bf.global.auth.JwtProvider;
 import com.barrierfree.bf.global.enums.Role;
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
+import com.barrierfree.bf.global.service.ImageService;
 import com.barrierfree.bf.user.dto.*;
 import com.barrierfree.bf.user.entity.User;
 import com.barrierfree.bf.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +22,7 @@ public class UserService {
   private final UserRepository userRepository;
   private final UserTermService userTermService;
   private final JwtProvider jwtProvider;
+  private final ImageService imageService;
 
   /** GUEST 유저의 온보딩(추가 정보 입력 및 약관 동의)을 처리하고 USER 권한으로 승격합니다. */
   @Transactional
@@ -101,6 +106,43 @@ public class UserService {
     }
 
     user.updateProfile(request.getNickname(), request.getMobilities(), request.getFacilities());
+  }
+
+  /** 프로필 이미지를 등록하거나 기존 이미지를 새 이미지로 교체합니다. */
+  @Transactional
+  public UserProfileImageResponse updateMyProfileImage(Long userId, MultipartFile image) {
+    if (image == null || image.isEmpty()) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    User user =
+        userRepository
+            .findByIdAndIsDeletedFalse(userId)
+            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+    String replacedObjectKey = imageService.extractObjectKey(user.getProfileImageUrl());
+    ImageService.UploadedImage uploadedImage = imageService.uploadImage("profiles", image);
+
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            if (replacedObjectKey != null && !replacedObjectKey.equals(uploadedImage.objectKey())) {
+              imageService.deleteImage(replacedObjectKey);
+            }
+          }
+
+          @Override
+          public void afterCompletion(int status) {
+            if (status != STATUS_COMMITTED) {
+              imageService.deleteImage(uploadedImage.objectKey());
+            }
+          }
+        });
+
+    user.updateProfileImage(uploadedImage.publicUrl());
+
+    return UserProfileImageResponse.builder().profileImageUrl(uploadedImage.publicUrl()).build();
   }
 
   /** 내 선호 필터 정보(온보딩 결과)를 조회합니다. */

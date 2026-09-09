@@ -35,13 +35,13 @@ public class ImageService {
       Arrays.asList("jpg", "jpeg", "png", "webp", "heic");
 
   /**
-   * 단일 이미지를 R2 스토리지에 업로드하고, 접근 가능한 Public URL을 반환합니다.
+   * 단일 이미지를 R2 스토리지에 업로드하고, 객체 키와 접근 가능한 Public URL을 반환합니다.
    *
    * @param directory 업로드할 폴더명 (예: "reviews", "profiles")
    * @param image 프론트엔드로부터 전달받은 이미지 파일 (MultipartFile)
-   * @return 업로드된 이미지의 Public URL (String)
+   * @return 업로드된 이미지의 객체 키와 Public URL
    */
-  public String uploadImage(String directory, MultipartFile image) {
+  public UploadedImage uploadImage(String directory, MultipartFile image) {
     if (image == null || image.isEmpty()) {
       return null; // 이미지가 필수가 아닐 수 있으므로 빈 값이면 null 반환 (필요시 예외 처리로 변경 가능)
     }
@@ -64,12 +64,39 @@ public class ImageService {
       log.info("R2 이미지 업로드 성공: {}", uniqueFilename);
 
       // 프론트엔드에서 바로 보여줄 수 있는 전체 URL 조합하여 반환
-      return publicUrl + "/" + uniqueFilename;
+      return new UploadedImage(uniqueFilename, publicUrl + "/" + uniqueFilename);
 
     } catch (IOException e) {
       log.error("이미지 업로드 중 IO 예외 발생: {}", e.getMessage());
       throw new CustomException(ErrorCode.IMAGE_UPLOAD_FAILED);
     }
+  }
+
+  /** R2 객체를 키로 삭제합니다. 삭제 실패는 이미 완료된 DB 트랜잭션에 영향을 주지 않도록 기록만 남깁니다. */
+  public void deleteImage(String objectKey) {
+    if (objectKey == null || objectKey.isBlank()) {
+      return;
+    }
+
+    try {
+      amazonS3.deleteObject(bucket, objectKey);
+      log.info("R2 이미지 삭제 성공: {}", objectKey);
+    } catch (RuntimeException e) {
+      log.error("R2 이미지 삭제 실패: {}", objectKey, e);
+    }
+  }
+
+  /** 이 서비스의 Public URL로 생성된 이미지 URL에서 R2 객체 키를 추출합니다. */
+  public String extractObjectKey(String imageUrl) {
+    if (imageUrl == null) {
+      return null;
+    }
+
+    String prefix = publicUrl + "/";
+    if (!imageUrl.startsWith(prefix) || imageUrl.length() == prefix.length()) {
+      return null;
+    }
+    return imageUrl.substring(prefix.length());
   }
 
   /** 파일명에서 확장자를 추출합니다. */
@@ -86,4 +113,6 @@ public class ImageService {
       throw new CustomException(ErrorCode.INVALID_IMAGE_FORMAT);
     }
   }
+
+  public record UploadedImage(String objectKey, String publicUrl) {}
 }

@@ -57,9 +57,9 @@ public class ReviewService {
     List<String> imageUrls = new ArrayList<>();
     if (images != null && !images.isEmpty()) {
       for (MultipartFile image : images) {
-        String uploadedUrl = imageService.uploadImage("reviews", image);
-        if (uploadedUrl != null) {
-          imageUrls.add(uploadedUrl);
+        ImageService.UploadedImage uploadedImage = imageService.uploadImage("reviews", image);
+        if (uploadedImage != null) {
+          imageUrls.add(uploadedImage.publicUrl());
         }
       }
     }
