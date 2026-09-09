@@ -23,11 +23,17 @@ public enum ErrorCode {
   TERM_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 약관을 찾을 수 없습니다."),
   REQUIRED_TERM_CANCELLATION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "T002", "필수 약관의 동의를 취소할 수 없습니다."),
 
+  INACTIVE_TERM(HttpStatus.BAD_REQUEST, "T003", "비활성 약관의 동의 상태는 변경할 수 없습니다."),
+
   // --- 공지사항 관련 에러 (Notice) ---
   NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "공지사항을 찾을 수 없습니다."),
 
   // --- 1:1 문의 관련 에러 (Inquiry) ---
   INQUIRY_NOT_FOUND(HttpStatus.NOT_FOUND, "Q001", "문의 내역을 찾을 수 없습니다."),
+
+  // --- 리뷰 관련 에러 (Review) ---
+  REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "V001", "해당 리뷰를 찾을 수 없습니다."),
+  REVIEW_UNAUTHORIZED_ACCESS(HttpStatus.FORBIDDEN, "V002", "해당 리뷰에 대한 권한이 없습니다."),
 
   // --- 인증 관련 에러 (Auth/Kakao) ---
   KAKAO_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "A001", "카카오 로그인 처리에 실패했습니다."),

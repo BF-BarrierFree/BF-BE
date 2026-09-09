@@ -11,16 +11,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TermCreateRequest {
 
-    @NotBlank(message = "약관 키를 입력해주세요.")
-    @Size(max = 100, message = "약관 키는 100자 이하여야 합니다.")
-    private String termKey;
+  @NotBlank(message = "약관 키를 입력해주세요.")
+  @Size(max = 100, message = "약관 키는 100자 이하여야 합니다.")
+  private String termKey;
 
-    @NotBlank(message = "약관 제목을 입력해주세요.")
-    private String title;
+  @NotBlank(message = "약관 제목을 입력해주세요.")
+  private String title;
 
-    @NotBlank(message = "약관 내용을 입력해주세요.")
-    private String content;
+  @NotBlank(message = "약관 내용을 입력해주세요.")
+  private String content;
 
-    @NotNull(message = "필수 약관 여부를 지정해주세요.")
-    private Boolean isRequired;
+  @NotNull(message = "필수 약관 여부를 지정해주세요.")
+  private Boolean isRequired;
 }

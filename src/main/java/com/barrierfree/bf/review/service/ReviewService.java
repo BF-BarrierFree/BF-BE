@@ -10,7 +10,10 @@ import com.barrierfree.bf.place.domain.PlaceCategory;
 import com.barrierfree.bf.review.dto.FacilityCountDto;
 import com.barrierfree.bf.review.dto.ReviewCreateRequest;
 import com.barrierfree.bf.review.dto.ReviewResponse;
+import com.barrierfree.bf.review.dto.ReviewUpdateRequest;
 import com.barrierfree.bf.review.entity.Review;
+import com.barrierfree.bf.review.entity.ReviewHelpful;
+import com.barrierfree.bf.review.repository.ReviewHelpfulRepository;
 import com.barrierfree.bf.review.repository.ReviewRepository;
 import com.barrierfree.bf.user.entity.User;
 import com.barrierfree.bf.user.repository.UserRepository;
@@ -33,6 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ReviewService {
 
   private final ReviewRepository reviewRepository;
+  private final ReviewHelpfulRepository reviewHelpfulRepository;
   private final UserRepository userRepository;
   private final JinaEmbeddingService jinaEmbeddingService; // GeminiService에서 Jina API로 마이그레이션
   private final ImageService imageService;
@@ -53,9 +57,9 @@ public class ReviewService {
     List<String> imageUrls = new ArrayList<>();
     if (images != null && !images.isEmpty()) {
       for (MultipartFile image : images) {
-        String uploadedUrl = imageService.uploadImage("reviews", image);
-        if (uploadedUrl != null) {
-          imageUrls.add(uploadedUrl);
+        ImageService.UploadedImage uploadedImage = imageService.uploadImage("reviews", image);
+        if (uploadedImage != null) {
+          imageUrls.add(uploadedImage.publicUrl());
         }
       }
     }
@@ -160,6 +164,52 @@ public class ReviewService {
     return reviews.map(ReviewResponse::from);
   }
 
+  /** 현재 사용자가 작성한 삭제되지 않은 리뷰를 조회합니다. */
+  public Page<ReviewResponse> getMyReviews(Long userId, Pageable pageable) {
+    findUser(userId);
+    return reviewRepository
+        .findAllByUserIdAndIsDeletedFalse(userId, pageable)
+        .map(ReviewResponse::from);
+  }
+
+  /** 현재 사용자가 도움이 되었다고 표시한 활성 리뷰를 조회합니다. */
+  public Page<ReviewResponse> getMyHelpfulReviews(Long userId, Pageable pageable) {
+    findUser(userId);
+    return reviewHelpfulRepository
+        .findActiveHelpfulReviewsByUserId(userId, pageable)
+        .map(helpful -> ReviewResponse.from(helpful.getReview()));
+  }
+
+  @Transactional
+  public void markReviewHelpful(Long userId, Long reviewId) {
+    User user = findUser(userId);
+    Review review = findActiveReview(reviewId);
+    if (!reviewHelpfulRepository.existsByUserIdAndReviewId(userId, reviewId)) {
+      reviewHelpfulRepository.save(new ReviewHelpful(user, review));
+    }
+  }
+
+  @Transactional
+  public void unmarkReviewHelpful(Long userId, Long reviewId) {
+    findUser(userId);
+    reviewHelpfulRepository
+        .findByUserIdAndReviewId(userId, reviewId)
+        .ifPresent(reviewHelpfulRepository::delete);
+  }
+
+  @Transactional
+  public void updateReview(Long userId, Long reviewId, ReviewUpdateRequest request) {
+    Review review = findActiveReview(reviewId);
+    if (!review.getUser().getId().equals(userId)) {
+      throw new CustomException(ErrorCode.REVIEW_UNAUTHORIZED_ACCESS);
+    }
+    review.update(
+        request.rating(),
+        request.content(),
+        parseMobilities(request.mobilities()),
+        parseFacilities(request.facilities()));
+  }
+
   // =========================================================================
   // 안전한 타입 변환을 위한 Helper 메서드들
   // =========================================================================
@@ -170,6 +220,22 @@ public class ReviewService {
     } catch (IllegalArgumentException | NullPointerException e) {
       throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
     }
+  }
+
+  private User findUser(Long userId) {
+    if (userId == null) {
+      throw new CustomException(ErrorCode.USER_NOT_FOUND);
+    }
+    return userRepository
+        .findByIdAndIsDeletedFalse(userId)
+        .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+  }
+
+  private Review findActiveReview(Long reviewId) {
+    return reviewRepository
+        .findById(reviewId)
+        .filter(review -> !review.isDeleted())
+        .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
   }
 
   private List<MobilityType> parseMobilities(List<String> mobilities) {

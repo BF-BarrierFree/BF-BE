@@ -12,8 +12,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserPreferenceUpdateRequest {
 
-    // 둘 중 하나만 요청으로 들어올 수 있으므로 @NotNull을 제거하여 유연성 확보
-    private List<MobilityType> mobilities;
+  // 둘 중 하나만 요청으로 들어올 수 있으므로 @NotNull을 제거하여 유연성 확보
+  private List<MobilityType> mobilities;
 
-    private List<FacilityType> facilities;
+  private List<FacilityType> facilities;
 }

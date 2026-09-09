@@ -9,6 +9,8 @@ import com.barrierfree.bf.user.entity.UserTermAgreement;
 import com.barrierfree.bf.user.repository.TermRepository;
 import com.barrierfree.bf.user.repository.UserRepository;
 import com.barrierfree.bf.user.repository.UserTermAgreementRepository;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,11 +30,22 @@ public class UserTermAgreementUpdateExecutor {
             .findById(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+    Set<Long> termIds = new HashSet<>();
+    for (TermAgreementUpdateRequest.TermAgreementDto dto : request.getAgreements()) {
+      if (!termIds.add(dto.getTermId())) {
+        throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+      }
+    }
+
     for (TermAgreementUpdateRequest.TermAgreementDto dto : request.getAgreements()) {
       Term term =
           termRepository
               .findById(dto.getTermId())
               .orElseThrow(() -> new CustomException(ErrorCode.TERM_NOT_FOUND));
+
+      if (!term.isActive()) {
+        throw new CustomException(ErrorCode.INACTIVE_TERM);
+      }
 
       if (term.isRequired() && !dto.getIsAgreed()) {
         throw new CustomException(ErrorCode.REQUIRED_TERM_CANCELLATION_NOT_ALLOWED);

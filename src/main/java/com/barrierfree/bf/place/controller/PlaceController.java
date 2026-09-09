@@ -47,7 +47,8 @@ public class PlaceController {
           @RequestParam(required = false)
           String category,
       @Parameter(description = "위도", example = "37.511") @RequestParam(required = false) Double lat,
-      @Parameter(description = "경도", example = "127.098") @RequestParam(required = false) Double lng,
+      @Parameter(description = "경도", example = "127.098") @RequestParam(required = false)
+          Double lng,
       @Parameter(description = "bias 반경(m)", example = "500")
           @RequestParam(defaultValue = "500", required = false)
           Integer radius) {
@@ -58,16 +59,15 @@ public class PlaceController {
   }
 
   @GetMapping("/search")
-  @Operation(
-      summary = "장소 검색",
-      description = "키워드로 장소를 검색합니다. 카테고리칩 검색은 /category-search를 사용합니다.")
+  @Operation(summary = "장소 검색", description = "키워드로 장소를 검색합니다. 카테고리칩 검색은 /category-search를 사용합니다.")
   public ApiResponse<PlaceSearchResponse> search(
       @Parameter(description = "검색어", example = "롯데") @RequestParam(required = false)
           String keyword,
       @Parameter(description = "keyword alias", example = "롯데") @RequestParam(required = false)
           String query,
       @Parameter(description = "위도", example = "37.511") @RequestParam(required = false) Double lat,
-      @Parameter(description = "경도", example = "127.098") @RequestParam(required = false) Double lng,
+      @Parameter(description = "경도", example = "127.098") @RequestParam(required = false)
+          Double lng,
       @Parameter(description = "bias 반경(m)", example = "500")
           @RequestParam(defaultValue = "500", required = false)
           Integer radius,
@@ -99,9 +99,7 @@ public class PlaceController {
   }
 
   @GetMapping("/category-search")
-  @Operation(
-      summary = "카테고리 기반 장소 검색",
-      description = "지도 중심 좌표와 반경 안에서 카테고리칩에 해당하는 장소를 검색합니다.")
+  @Operation(summary = "카테고리 기반 장소 검색", description = "지도 중심 좌표와 반경 안에서 카테고리칩에 해당하는 장소를 검색합니다.")
   public ApiResponse<PlaceSearchResponse> searchByCategory(
       @Parameter(
               description =

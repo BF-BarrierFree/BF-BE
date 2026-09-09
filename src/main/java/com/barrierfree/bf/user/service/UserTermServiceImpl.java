@@ -10,7 +10,10 @@ import com.barrierfree.bf.user.entity.UserTermAgreement;
 import com.barrierfree.bf.user.repository.TermRepository;
 import com.barrierfree.bf.user.repository.UserRepository;
 import com.barrierfree.bf.user.repository.UserTermAgreementRepository;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.NestedExceptionUtils;
@@ -24,91 +27,102 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserTermServiceImpl implements UserTermService {
 
-    private final UserRepository userRepository;
-    private final TermRepository termRepository;
-    private final UserTermAgreementRepository userTermAgreementRepository;
-    private final UserTermAgreementUpdateExecutor agreementUpdateExecutor;
+  private final UserRepository userRepository;
+  private final TermRepository termRepository;
+  private final UserTermAgreementRepository userTermAgreementRepository;
+  private final UserTermAgreementUpdateExecutor agreementUpdateExecutor;
 
-    @Override
-    public List<UserTermAgreementResponse> getUserAgreements(Long userId) {
-        // 사용자 검증 로직 추가 가능
-
-        List<UserTermAgreement> agreements = userTermAgreementRepository.findByUserId(userId);
-        return agreements.stream()
-            .map(UserTermAgreementResponse::from)
-            .collect(Collectors.toList());
+  @Override
+  public List<UserTermAgreementResponse> getUserAgreements(Long userId) {
+    if (!userRepository.existsById(userId)) {
+      throw new CustomException(ErrorCode.USER_NOT_FOUND);
     }
+    Map<Long, UserTermAgreement> agreements =
+        userTermAgreementRepository.findByUserId(userId).stream()
+            .collect(Collectors.toMap(a -> a.getTerm().getId(), Function.identity()));
+    return termRepository.findAllByIsActiveTrue().stream()
+        .sorted(Comparator.comparing(Term::getId))
+        .map(
+            term ->
+                agreements.containsKey(term.getId())
+                    ? UserTermAgreementResponse.from(agreements.get(term.getId()))
+                    : UserTermAgreementResponse.notAgreed(term))
+        .toList();
+  }
 
-    @Override
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void updateAgreements(Long userId, TermAgreementUpdateRequest request) {
-        try {
-            agreementUpdateExecutor.updateAgreements(userId, request);
-        } catch (DataIntegrityViolationException exception) {
-            String causeMessage = NestedExceptionUtils.getMostSpecificCause(exception).getMessage();
-            if (causeMessage == null
-                || !causeMessage.contains("uk_user_term_agreements_user_term")) {
-                throw exception;
-            }
+  @Override
+  @Transactional(propagation = Propagation.NOT_SUPPORTED)
+  public void updateAgreements(Long userId, TermAgreementUpdateRequest request) {
+    try {
+      agreementUpdateExecutor.updateAgreements(userId, request);
+    } catch (DataIntegrityViolationException exception) {
+      String causeMessage = NestedExceptionUtils.getMostSpecificCause(exception).getMessage();
+      if (causeMessage == null || !causeMessage.contains("uk_user_term_agreements_user_term")) {
+        throw exception;
+      }
 
-            agreementUpdateExecutor.updateAgreements(userId, request);
-        }
+      agreementUpdateExecutor.updateAgreements(userId, request);
     }
+  }
 
-    @Override
-    public boolean checkRequiredTermsAgreed(Long userId) {
-        // 활성화된 필수 약관 목록 조회
-        List<Term> requiredTerms = termRepository.findAllByIsRequiredTrueAndIsActiveTrue();
+  @Override
+  public boolean checkRequiredTermsAgreed(Long userId) {
+    // 활성화된 필수 약관 목록 조회
+    List<Term> requiredTerms = termRepository.findAllByIsRequiredTrueAndIsActiveTrue();
 
-        // 사용자가 동의한 약관 내역 조회
-        List<UserTermAgreement> userAgreements = userTermAgreementRepository.findByUserId(userId);
+    // 사용자가 동의한 약관 내역 조회
+    List<UserTermAgreement> userAgreements = userTermAgreementRepository.findByUserId(userId);
 
-        // 동의한 필수 약관 ID 목록 추출 (isAgreed가 true인 것만)
-        List<Long> agreedRequiredTermIds = userAgreements.stream()
+    // 동의한 필수 약관 ID 목록 추출 (isAgreed가 true인 것만)
+    List<Long> agreedRequiredTermIds =
+        userAgreements.stream()
             .filter(UserTermAgreement::isAgreed)
             .filter(agreement -> agreement.getTerm().isRequired())
             .map(agreement -> agreement.getTerm().getId())
             .toList();
 
-        // 전체 필수 약관 ID가 사용자가 동의한 필수 약관 ID 목록에 모두 포함되는지 확인
-        return requiredTerms.stream()
-            .allMatch(term -> agreedRequiredTermIds.contains(term.getId()));
-    }
+    // 전체 필수 약관 ID가 사용자가 동의한 필수 약관 ID 목록에 모두 포함되는지 확인
+    return requiredTerms.stream().allMatch(term -> agreedRequiredTermIds.contains(term.getId()));
+  }
 
-    @Override
-    @Transactional
-    public void saveOnboardingAgreements(Long userId, List<Long> agreedTermIds) {
-        User user = userRepository.findById(userId)
+  @Override
+  @Transactional
+  public void saveOnboardingAgreements(Long userId, List<Long> agreedTermIds) {
+    User user =
+        userRepository
+            .findById(userId)
             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // DB에 등록된 활성화된 전체 약관 조회
-        List<Term> activeTerms = termRepository.findAllByIsActiveTrue();
+    // DB에 등록된 활성화된 전체 약관 조회
+    List<Term> activeTerms = termRepository.findAllByIsActiveTrue();
 
-        // 활성화된 약관 ID 목록 추출
-        List<Long> activeTermIds = activeTerms.stream().map(Term::getId).toList();
+    // 활성화된 약관 ID 목록 추출
+    List<Long> activeTermIds = activeTerms.stream().map(Term::getId).toList();
 
-        // 유저가 동의한 모든 약관 ID가 활성화된 약관에 존재하는지 검증
-        boolean allAgreedTermsAreValid = agreedTermIds.stream().allMatch(activeTermIds::contains);
+    // 유저가 동의한 모든 약관 ID가 활성화된 약관에 존재하는지 검증
+    boolean allAgreedTermsAreValid = agreedTermIds.stream().allMatch(activeTermIds::contains);
 
-        if (!allAgreedTermsAreValid) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
-        }
+    if (!allAgreedTermsAreValid) {
+      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    }
 
-        // 등록된 필수 약관 목록이 유저가 넘긴 agreedTermIds에 모두 포함되어 있는지 확인
-        boolean hasAllRequiredTerms = activeTerms.stream()
+    // 등록된 필수 약관 목록이 유저가 넘긴 agreedTermIds에 모두 포함되어 있는지 확인
+    boolean hasAllRequiredTerms =
+        activeTerms.stream()
             .filter(Term::isRequired)
             .allMatch(term -> agreedTermIds.contains(term.getId()));
 
-        if (!hasAllRequiredTerms) {
-            throw new CustomException(ErrorCode.REQUIRED_TERMS_NOT_AGREED);
-        }
+    if (!hasAllRequiredTerms) {
+      throw new CustomException(ErrorCode.REQUIRED_TERMS_NOT_AGREED);
+    }
 
-        // 유저가 체크(동의)한 약관만 필터링하여 매핑 엔티티 생성 후 Bulk Save
-        List<UserTermAgreement> agreements = activeTerms.stream()
+    // 유저가 체크(동의)한 약관만 필터링하여 매핑 엔티티 생성 후 Bulk Save
+    List<UserTermAgreement> agreements =
+        activeTerms.stream()
             .filter(term -> agreedTermIds.contains(term.getId()))
             .map(term -> UserTermAgreement.builder().user(user).term(term).isAgreed(true).build())
             .collect(Collectors.toList());
 
-        userTermAgreementRepository.saveAll(agreements);
-    }
+    userTermAgreementRepository.saveAll(agreements);
+  }
 }
