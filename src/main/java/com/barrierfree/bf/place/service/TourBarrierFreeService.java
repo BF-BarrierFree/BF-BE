@@ -145,7 +145,10 @@ public class TourBarrierFreeService {
     }
   }
 
-  @Cacheable(cacheNames = "tourBarrierFreePlaceDetail", key = "#contentId", unless = "#result == null")
+  @Cacheable(
+      cacheNames = "tourBarrierFreePlaceDetail",
+      key = "#contentId",
+      unless = "#result == null")
   public PublicBarrierFreePlace findByContentId(String contentId) {
     if (contentId == null || contentId.isBlank()) {
       return null;

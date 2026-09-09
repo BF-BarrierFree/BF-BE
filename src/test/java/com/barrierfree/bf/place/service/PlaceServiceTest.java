@@ -10,11 +10,11 @@ import static org.mockito.Mockito.when;
 
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
+import com.barrierfree.bf.place.domain.PlaceCategory;
 import com.barrierfree.bf.place.dto.GooglePlaceResponseDto;
 import com.barrierfree.bf.place.dto.PlaceDetailResponse;
 import com.barrierfree.bf.place.dto.PlaceSearchResponse;
 import com.barrierfree.bf.place.dto.PublicBarrierFreeInfo;
-import com.barrierfree.bf.place.domain.PlaceCategory;
 import java.util.HashMap;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -56,8 +56,7 @@ class PlaceServiceTest {
     GooglePlaceResponseDto.Place place = new GooglePlaceResponseDto.Place();
     GooglePlaceResponseDto.LocalizedText displayName = new GooglePlaceResponseDto.LocalizedText();
     GooglePlaceResponseDto.Location location = new GooglePlaceResponseDto.Location();
-    GooglePlaceResponseDto.OpeningHours openingHours =
-        new GooglePlaceResponseDto.OpeningHours();
+    GooglePlaceResponseDto.OpeningHours openingHours = new GooglePlaceResponseDto.OpeningHours();
 
     ReflectionTestUtils.setField(displayName, "text", "롯데월드");
     ReflectionTestUtils.setField(location, "latitude", 37.511);
@@ -83,13 +82,13 @@ class PlaceServiceTest {
     assertThat(response.weekdayDescriptions())
         .containsExactly("월요일: 오전 10:00~오후 9:00", "화요일: 오전 10:00~오후 9:00");
   }
+
   @Test
   void includesOpeningHoursAndReviewCountInPlaceSearchSummary() {
     GooglePlaceResponseDto.Place place = new GooglePlaceResponseDto.Place();
     GooglePlaceResponseDto.LocalizedText displayName = new GooglePlaceResponseDto.LocalizedText();
     GooglePlaceResponseDto.Location location = new GooglePlaceResponseDto.Location();
-    GooglePlaceResponseDto.OpeningHours openingHours =
-        new GooglePlaceResponseDto.OpeningHours();
+    GooglePlaceResponseDto.OpeningHours openingHours = new GooglePlaceResponseDto.OpeningHours();
 
     ReflectionTestUtils.setField(displayName, "text", "Star Cafe");
     ReflectionTestUtils.setField(location, "latitude", 37.5);

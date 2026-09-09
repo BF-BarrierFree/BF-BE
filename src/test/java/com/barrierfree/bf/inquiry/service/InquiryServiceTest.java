@@ -37,8 +37,7 @@ class InquiryServiceTest {
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     InquiryResponse response =
-        service.createInquiry(
-            1L, new InquiryCreateRequest("서비스이용", " 문의 제목 ", " 문의 내용 "));
+        service.createInquiry(1L, new InquiryCreateRequest("서비스이용", " 문의 제목 ", " 문의 내용 "));
 
     assertThat(response.category()).isEqualTo(InquiryCategory.SERVICE_USAGE);
     assertThat(response.status()).isEqualTo(InquiryStatus.PENDING);
@@ -95,8 +94,7 @@ class InquiryServiceTest {
     when(userRepository.findByIdAndIsDeletedFalse(99L)).thenReturn(Optional.of(admin));
     when(inquiryRepository.findById(10L)).thenReturn(Optional.of(inquiry));
 
-    InquiryResponse response =
-        service.answerInquiry(99L, 10L, new InquiryAnswerRequest(" 답변 내용 "));
+    InquiryResponse response = service.answerInquiry(99L, 10L, new InquiryAnswerRequest(" 답변 내용 "));
 
     assertThat(response.answer()).isEqualTo("답변 내용");
     assertThat(response.status()).isEqualTo(InquiryStatus.ANSWERED);

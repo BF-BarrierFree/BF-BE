@@ -125,16 +125,13 @@ public class User extends BaseEntity {
     this.facilities.clear();
   }
 
-    /**
-     * 유저 선호 필터(이동 수단, 필요 시설)만 독립적으로 수정합니다.
-     * 인자로 null이 들어올 경우 기존 값을 유지합니다. (부분 업데이트 지원)
-     */
-    public void updatePreferences(List<MobilityType> mobilities, List<FacilityType> facilities) {
-        if (mobilities != null) {
-            this.mobilities = mobilities;
-        }
-        if (facilities != null) {
-            this.facilities = facilities;
-        }
+  /** 유저 선호 필터(이동 수단, 필요 시설)만 독립적으로 수정합니다. 인자로 null이 들어올 경우 기존 값을 유지합니다. (부분 업데이트 지원) */
+  public void updatePreferences(List<MobilityType> mobilities, List<FacilityType> facilities) {
+    if (mobilities != null) {
+      this.mobilities = mobilities;
     }
+    if (facilities != null) {
+      this.facilities = facilities;
+    }
+  }
 }

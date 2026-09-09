@@ -12,7 +12,6 @@ import com.barrierfree.bf.config.SecurityConfig;
 import com.barrierfree.bf.global.auth.JwtAuthenticationFilter;
 import com.barrierfree.bf.global.auth.JwtProvider;
 import com.barrierfree.bf.user.dto.TermAgreementUpdateRequest;
-import com.barrierfree.bf.user.dto.UserTermAgreementResponse;
 import com.barrierfree.bf.user.service.UserTermService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;

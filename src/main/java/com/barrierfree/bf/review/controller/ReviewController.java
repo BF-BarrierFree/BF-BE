@@ -6,6 +6,7 @@ import com.barrierfree.bf.global.response.ApiResponse;
 import com.barrierfree.bf.review.dto.FacilityCountDto;
 import com.barrierfree.bf.review.dto.ReviewCreateRequest;
 import com.barrierfree.bf.review.dto.ReviewResponse;
+import com.barrierfree.bf.review.dto.ReviewUpdateRequest;
 import com.barrierfree.bf.review.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,6 +16,7 @@ import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -23,9 +25,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -227,5 +232,55 @@ public class ReviewController {
 
     Page<ReviewResponse> response = reviewService.searchSimilarReviews(query, pageable);
     return ApiResponse.success(response);
+  }
+
+  @Operation(summary = "내가 작성한 리뷰 조회", description = "현재 로그인한 사용자가 작성한 리뷰를 페이징하여 조회합니다.")
+  @GetMapping("/users/me/reviews")
+  public ApiResponse<Page<ReviewResponse>> getMyReviews(
+      @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+      @Parameter(hidden = true)
+          @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+          Pageable pageable) {
+    return ApiResponse.success(reviewService.getMyReviews(userId, pageable));
+  }
+
+  @Operation(
+      summary = "도움이 됐어요 표시한 리뷰 조회",
+      description = "현재 로그인한 사용자가 도움이 되었다고 표시한 리뷰를 페이징하여 조회합니다.")
+  @GetMapping("/users/me/reviews/helpful")
+  public ApiResponse<Page<ReviewResponse>> getMyHelpfulReviews(
+      @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+      @Parameter(hidden = true)
+          @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
+          Pageable pageable) {
+    return ApiResponse.success(reviewService.getMyHelpfulReviews(userId, pageable));
+  }
+
+  @Operation(summary = "리뷰 도움됨 표시", description = "리뷰에 도움이 됐어요 표시를 합니다. 이미 표시한 경우에도 성공으로 처리합니다.")
+  @PostMapping("/reviews/{reviewId}/helpful")
+  public ApiResponse<?> markReviewHelpful(
+      @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+      @Parameter(description = "리뷰 ID", example = "1") @PathVariable Long reviewId) {
+    reviewService.markReviewHelpful(userId, reviewId);
+    return ApiResponse.successWithNoContent();
+  }
+
+  @Operation(summary = "리뷰 도움됨 표시 해제", description = "리뷰의 도움이 됐어요 표시를 해제합니다.")
+  @DeleteMapping("/reviews/{reviewId}/helpful")
+  public ApiResponse<?> unmarkReviewHelpful(
+      @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+      @Parameter(description = "리뷰 ID", example = "1") @PathVariable Long reviewId) {
+    reviewService.unmarkReviewHelpful(userId, reviewId);
+    return ApiResponse.successWithNoContent();
+  }
+
+  @Operation(summary = "내 리뷰 수정", description = "작성자만 별점, 내용, 이동 유형, 접근성 시설을 수정할 수 있습니다.")
+  @PatchMapping("/reviews/{reviewId}")
+  public ApiResponse<?> updateReview(
+      @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+      @Parameter(description = "리뷰 ID", example = "1") @PathVariable Long reviewId,
+      @Valid @RequestBody ReviewUpdateRequest request) {
+    reviewService.updateReview(userId, reviewId, request);
+    return ApiResponse.successWithNoContent();
   }
 }
