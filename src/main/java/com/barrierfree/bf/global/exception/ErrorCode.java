@@ -23,6 +23,8 @@ public enum ErrorCode {
   TERM_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 약관을 찾을 수 없습니다."),
   REQUIRED_TERM_CANCELLATION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "T002", "필수 약관의 동의를 취소할 수 없습니다."),
 
+  INACTIVE_TERM(HttpStatus.BAD_REQUEST, "T003", "비활성 약관의 동의 상태는 변경할 수 없습니다."),
+
   // --- 공지사항 관련 에러 (Notice) ---
   NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "공지사항을 찾을 수 없습니다."),
 
