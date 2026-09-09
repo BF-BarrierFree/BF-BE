@@ -26,6 +26,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Array;
 import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -72,6 +73,7 @@ public class Review extends BaseEntity {
 
   // === Vector DB (pgvector) 매핑 ===
   @JdbcTypeCode(SqlTypes.VECTOR)
+  @Array(length = 1024)
   @Column(name = "embedding", columnDefinition = "vector(1024)")
   private float[] embedding;
 
@@ -131,5 +133,17 @@ public class Review extends BaseEntity {
   public void softDelete() {
     this.isDeleted = true;
     this.deletedAt = LocalDateTime.now();
+  }
+
+  /** 리뷰의 사용자 입력 정보를 수정합니다. 장소 정보와 첨부 이미지는 유지합니다. */
+  public void update(
+      Integer rating,
+      String content,
+      List<MobilityType> mobilities,
+      List<FacilityType> facilities) {
+    this.rating = rating;
+    this.content = content;
+    this.mobilities = mobilities != null ? mobilities : new ArrayList<>();
+    this.facilities = facilities != null ? facilities : new ArrayList<>();
   }
 }

@@ -14,6 +14,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
+  Page<Review> findAllByUserIdAndIsDeletedFalse(Long userId, Pageable pageable);
+
   /**
    * 1. [하이브리드 - RDBMS] 동적 필터링 조회 (Specification 대체) - 컬렉션(mobilities, facilities)이 비어있을 때 IN 절에서
    * 발생하는 SQL 문법 에러를 막기 위해 Service 계층에서 hasMobilities, hasFacilities 플래그를 넘겨받아 쿼리를 안전하게
