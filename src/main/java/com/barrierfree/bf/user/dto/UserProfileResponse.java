@@ -3,6 +3,7 @@ package com.barrierfree.bf.user.dto;
 import com.barrierfree.bf.global.enums.FacilityType;
 import com.barrierfree.bf.global.enums.MobilityType;
 import com.barrierfree.bf.global.enums.Role;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
@@ -14,6 +15,7 @@ public class UserProfileResponse {
 
   private String nickname;
   private String profileImageUrl;
+  private LocalDateTime createdAt;
   private Role role;
   private List<MobilityType> mobilities;
   private List<FacilityType> facilities;
