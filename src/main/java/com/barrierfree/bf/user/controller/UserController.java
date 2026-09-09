@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,7 +19,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @Tag(name = "사용자 API", description = "온보딩 및 사용자 정보 관련 API")
 @RestController
@@ -68,6 +71,18 @@ public class UserController {
       @Valid @RequestBody UserUpdateRequest request) {
     userService.updateMyProfile(userId, request);
     return ApiResponse.successWithNoContent();
+  }
+
+  @Operation(
+      summary = "내 프로필 이미지 등록 및 수정",
+      description = "이미지가 없으면 등록하고, 기존 이미지가 있으면 새 이미지로 교체합니다.")
+  @PatchMapping(value = "/me/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ApiResponse<UserProfileImageResponse> updateMyProfileImage(
+      @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+      @Parameter(description = "프로필 이미지 파일", required = true) @RequestPart("image")
+          MultipartFile image) {
+    UserProfileImageResponse response = userService.updateMyProfileImage(userId, image);
+    return ApiResponse.success(response, "프로필 이미지가 저장되었습니다.");
   }
 
   @Operation(summary = "회원 탈퇴", description = "회원 탈퇴를 진행합니다. (개인정보는 마스킹 처리됩니다.)")
