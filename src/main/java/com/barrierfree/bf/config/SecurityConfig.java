@@ -82,6 +82,8 @@ public class SecurityConfig {
                         "/api/v1/notices/**",
                         "/api/v1/terms",
                         "/api/v1/terms/**",
+                        "/api/v1/policies",
+                        "/api/v1/policies/**",
                         "/api/v1/users/check-nickname")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/terms")
@@ -91,6 +93,8 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.PUT, "/api/v1/notices", "/api/v1/notices/**")
                     .hasAuthority("ROLE_ADMIN")
                     .requestMatchers(HttpMethod.PATCH, "/api/v1/notices", "/api/v1/notices/**")
+                    .hasAuthority("ROLE_ADMIN")
+                    .requestMatchers(HttpMethod.PATCH, "/api/v1/policies", "/api/v1/policies/**")
                     .hasAuthority("ROLE_ADMIN")
                     .requestMatchers(HttpMethod.DELETE, "/api/v1/notices", "/api/v1/notices/**")
                     .hasAuthority("ROLE_ADMIN")
