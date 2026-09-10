@@ -810,6 +810,7 @@ public class PlaceService {
       PlaceCategory category,
       boolean accessibilityFilterRequested,
       Map<String, PublicBarrierFreeInfo> publicInfoCache) {
+    category = resolveResponseCategory(place, category);
     GooglePlaceResponseDto.Location location = place.getLocation();
     GooglePlaceResponseDto.AccessibilityOptions accessibility = place.getAccessibilityOptions();
     GooglePlaceResponseDto.OpeningHours openingHours = place.getRegularOpeningHours();
@@ -1153,6 +1154,12 @@ public class PlaceService {
 
   private PlaceCategory resolveResponseCategory(
       GooglePlaceResponseDto.Place place, PlaceCategory requestedCategory) {
+    // 음식점/카페는 검색 요청이 아니라 제공된 실제 유형으로 구분합니다.
+    if ((requestedCategory == PlaceCategory.FOOD || requestedCategory == PlaceCategory.CAFE)
+        && place.getTypes() != null
+        && !place.getTypes().isEmpty()) {
+      return PlaceCategory.inferFromTypes(place.getTypes());
+    }
     if (requestedCategory != null && requestedCategory != PlaceCategory.ETC) {
       return requestedCategory;
     }

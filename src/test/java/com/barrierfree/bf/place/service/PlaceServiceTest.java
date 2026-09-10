@@ -32,6 +32,27 @@ class PlaceServiceTest {
       new PlaceService(null, placeTestService, placeSearchHistoryService, tourBarrierFreeService);
 
   @Test
+  void usesActualCafeCategoryForRestaurantSearchResult() {
+    GooglePlaceResponseDto.Place place = new GooglePlaceResponseDto.Place();
+    ReflectionTestUtils.setField(place, "types", List.of("cafe", "food", "establishment"));
+    PlaceSearchResponse.PlaceSummary summary =
+        ReflectionTestUtils.invokeMethod(
+            service, "toPlaceSummary", place, PlaceCategory.FOOD, false, new HashMap<>());
+    assertThat(summary.category()).isEqualTo(PlaceCategory.CAFE);
+    assertThat(summary.categoryLabel()).isEqualTo(PlaceCategory.CAFE.getLabel());
+  }
+
+  @Test
+  void usesActualRestaurantCategoryForCafeSearchResult() {
+    GooglePlaceResponseDto.Place place = new GooglePlaceResponseDto.Place();
+    ReflectionTestUtils.setField(place, "types", List.of("restaurant", "food"));
+    PlaceSearchResponse.PlaceSummary summary =
+        ReflectionTestUtils.invokeMethod(
+            service, "toPlaceSummary", place, PlaceCategory.CAFE, false, new HashMap<>());
+    assertThat(summary.category()).isEqualTo(PlaceCategory.FOOD);
+  }
+
+  @Test
   void rejectsCategorySearchWithoutValidMapArea() {
     assertThatThrownBy(
             () -> service.searchByCategory("CAFE", null, 127.0, 1000, 20, List.of(), List.of()))
