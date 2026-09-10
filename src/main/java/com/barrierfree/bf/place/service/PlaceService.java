@@ -1158,7 +1158,8 @@ public class PlaceService {
     if ((requestedCategory == PlaceCategory.FOOD || requestedCategory == PlaceCategory.CAFE)
         && place.getTypes() != null
         && !place.getTypes().isEmpty()) {
-      return PlaceCategory.inferFromTypes(place.getTypes());
+      PlaceCategory inferredCategory = PlaceCategory.inferFromTypes(place.getTypes());
+      return inferredCategory == PlaceCategory.ETC ? requestedCategory : inferredCategory;
     }
     if (requestedCategory != null && requestedCategory != PlaceCategory.ETC) {
       return requestedCategory;

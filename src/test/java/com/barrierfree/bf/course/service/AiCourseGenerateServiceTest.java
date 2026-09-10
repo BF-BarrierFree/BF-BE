@@ -73,7 +73,7 @@ class AiCourseGenerateServiceTest {
         .isInstanceOfSatisfying(
             CustomException.class,
             exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PLACE_NOT_FOUND));
-    verify(placeService, times(3))
+    verify(placeService, times(6))
         .search(
             anyString(),
             anyString(),
@@ -270,6 +270,139 @@ class AiCourseGenerateServiceTest {
         .isInstanceOfSatisfying(
             CustomException.class,
             e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.PLACE_NOT_FOUND));
+  }
+
+  @Test
+  void skipsOptionalSlotsWhenNoMatchingPlaceExists() {
+    double lat = CourseRegion.SEOUL.getCenterLat();
+    double lng = CourseRegion.SEOUL.getCenterLng();
+    when(placeService.search(
+            anyString(),
+            anyString(),
+            anyDouble(),
+            anyDouble(),
+            anyInt(),
+            anyInt(),
+            isNull(),
+            anyList(),
+            anyList()))
+        .thenAnswer(
+            invocation -> {
+              PlaceCategory category = PlaceCategory.valueOf(invocation.getArgument(1));
+              if (category == PlaceCategory.FOOD) {
+                return new PlaceSearchResponse(
+                    List.of(place("food", category, lat, lng)), null, false);
+              }
+              return new PlaceSearchResponse(List.of(), null, false);
+            });
+
+    var result = service.generateCoursePreview(generateRequest());
+
+    assertThat(result.places()).extracting(p -> p.placeId()).containsExactly("food");
+    assertThat(result.places()).extracting(p -> p.sequence()).containsExactly(0);
+  }
+
+  @Test
+  void reusesCandidatesForRepeatedCategoriesWithinOneRequest() {
+    double lat = CourseRegion.SEOUL.getCenterLat();
+    double lng = CourseRegion.SEOUL.getCenterLng();
+    when(placeService.search(
+            anyString(),
+            anyString(),
+            anyDouble(),
+            anyDouble(),
+            anyInt(),
+            anyInt(),
+            isNull(),
+            anyList(),
+            anyList()))
+        .thenAnswer(
+            invocation -> {
+              PlaceCategory category = PlaceCategory.valueOf(invocation.getArgument(1));
+              return new PlaceSearchResponse(
+                  List.of(
+                      place(category + "-1", category, lat, lng),
+                      place(category + "-2", category, lat + .001, lng)),
+                  null,
+                  false);
+            });
+
+    var result =
+        service.generateCoursePreview(
+            new AiCourseGenerateRequest(
+                CourseRegion.SEOUL,
+                CourseCompanion.ALONE,
+                List.of(),
+                CourseTheme.NATURE_HEALING,
+                CourseDuration.FULL_DAY));
+
+    assertThat(result.places()).hasSize(5);
+    verify(placeService, times(3))
+        .search(
+            anyString(),
+            anyString(),
+            anyDouble(),
+            anyDouble(),
+            anyInt(),
+            anyInt(),
+            isNull(),
+            anyList(),
+            anyList());
+  }
+
+  @Test
+  void boundsSearchCallsWhileKeepingRequiredCachedPlaces() {
+    double lat = CourseRegion.SEOUL.getCenterLat();
+    double lng = CourseRegion.SEOUL.getCenterLng();
+    when(placeService.search(
+            anyString(),
+            anyString(),
+            anyDouble(),
+            anyDouble(),
+            anyInt(),
+            anyInt(),
+            isNull(),
+            anyList(),
+            anyList()))
+        .thenAnswer(
+            invocation -> {
+              PlaceCategory category = PlaceCategory.valueOf(invocation.getArgument(1));
+              if (category != PlaceCategory.FOOD && category != PlaceCategory.LODGING) {
+                return new PlaceSearchResponse(List.of(), null, false);
+              }
+              return new PlaceSearchResponse(
+                  java.util.stream.IntStream.range(0, 20)
+                      .mapToObj(index -> place(category + "-" + index, category, lat, lng))
+                      .toList(),
+                  null,
+                  false);
+            });
+
+    var result =
+        service.generateCoursePreview(
+            new AiCourseGenerateRequest(
+                CourseRegion.SEOUL,
+                CourseCompanion.ALONE,
+                List.of(),
+                CourseTheme.NATURE_HEALING,
+                CourseDuration.TWO_NIGHTS_MORE));
+
+    assertThat(result.places())
+        .allMatch(
+            place ->
+                place.category() == PlaceCategory.FOOD
+                    || place.category() == PlaceCategory.LODGING);
+    verify(placeService, times(24))
+        .search(
+            anyString(),
+            anyString(),
+            anyDouble(),
+            anyDouble(),
+            anyInt(),
+            anyInt(),
+            isNull(),
+            anyList(),
+            anyList());
   }
 
   private PlaceSearchResponse.PlaceSummary place(

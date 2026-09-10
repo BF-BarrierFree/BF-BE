@@ -53,6 +53,20 @@ class PlaceServiceTest {
   }
 
   @Test
+  void keepsRequestedFoodOrCafeCategoryWhenTypesCannotBeRecognized() {
+    GooglePlaceResponseDto.Place place = new GooglePlaceResponseDto.Place();
+    ReflectionTestUtils.setField(place, "types", List.of("establishment", "point_of_interest"));
+
+    for (PlaceCategory requestedCategory : List.of(PlaceCategory.FOOD, PlaceCategory.CAFE)) {
+      PlaceSearchResponse.PlaceSummary summary =
+          ReflectionTestUtils.invokeMethod(
+              service, "toPlaceSummary", place, requestedCategory, false, new HashMap<>());
+
+      assertThat(summary.category()).isEqualTo(requestedCategory);
+    }
+  }
+
+  @Test
   void rejectsCategorySearchWithoutValidMapArea() {
     assertThatThrownBy(
             () -> service.searchByCategory("CAFE", null, 127.0, 1000, 20, List.of(), List.of()))
