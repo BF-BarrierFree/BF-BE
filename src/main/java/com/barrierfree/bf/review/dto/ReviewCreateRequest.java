@@ -1,10 +1,8 @@
 package com.barrierfree.bf.review.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,7 +14,6 @@ import lombok.Setter;
 @Schema(description = "리뷰 생성 요청 DTO (multipart/form-data의 request 파트)")
 public class ReviewCreateRequest {
 
-  @NotBlank(message = "장소 ID는 필수입니다.")
   @Schema(description = "구글 맵스 장소 ID", example = "ChIJDY1UG9yZfDURPxpYsLCIEWg")
   private String placeId;
 
@@ -28,11 +25,10 @@ public class ReviewCreateRequest {
   @Schema(description = "장소 카테고리 (FOOD, CAFE, TOUR_CULTURE 등)", example = "FOOD")
   private String category;
 
-  @NotNull(message = "별점은 필수입니다.")
-  @Min(value = 1, message = "별점은 1점 이상이어야 합니다.")
-  @Max(value = 5, message = "별점은 5점 이하이어야 합니다.")
-  @Schema(description = "별점 (1~5)", example = "5")
-  private Integer rating;
+  @NotBlank(message = "장소 지역은 필수입니다.")
+  @Size(max = 100)
+  @Schema(description = "장소 지역. 시/도 약칭과 시/군/구를 공백으로 구분하며 필터와 동일한 표기를 사용", example = "서울 용산구")
+  private String region;
 
   @NotBlank(message = "리뷰 내용은 필수입니다.")
   @Schema(description = "리뷰 내용 본문", example = "단차가 없어서 휠체어로 들어가기 좋았습니다.")
