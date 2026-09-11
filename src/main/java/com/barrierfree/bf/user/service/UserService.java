@@ -85,7 +85,7 @@ public class UserService {
     return UserProfileResponse.builder()
         .nickname(user.getNickname())
         .profileImageUrl(user.getProfileImageUrl())
-        .createdAt(user.getCreatedAt())
+        .updatedAt(user.getUpdatedAt())
         .role(user.getRole())
         .mobilities(user.getMobilities())
         .facilities(user.getFacilities())

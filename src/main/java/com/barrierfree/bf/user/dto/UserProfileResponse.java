@@ -15,7 +15,7 @@ public class UserProfileResponse {
 
   private String nickname;
   private String profileImageUrl;
-  private LocalDateTime createdAt;
+  private LocalDateTime updatedAt;
   private Role role;
   private List<MobilityType> mobilities;
   private List<FacilityType> facilities;
