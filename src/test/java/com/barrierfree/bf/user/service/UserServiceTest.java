@@ -17,10 +17,10 @@ import org.junit.jupiter.api.Test;
 class UserServiceTest {
 
   @Test
-  void includesCreatedAtInMyProfile() {
+  void includesUpdatedAtInMyProfile() {
     UserRepository userRepository = mock(UserRepository.class);
     User user = mock(User.class);
-    LocalDateTime createdAt = LocalDateTime.of(2026, 9, 10, 12, 30);
+    LocalDateTime updatedAt = LocalDateTime.of(2026, 9, 10, 12, 30);
     UserService userService =
         new UserService(
             userRepository,
@@ -31,11 +31,11 @@ class UserServiceTest {
     when(userRepository.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(user));
     when(user.getNickname()).thenReturn("barrierfree");
     when(user.getProfileImageUrl()).thenReturn("https://cdn.example/profile.png");
-    when(user.getCreatedAt()).thenReturn(createdAt);
+    when(user.getUpdatedAt()).thenReturn(updatedAt);
     when(user.getRole()).thenReturn(Role.USER);
 
     UserProfileResponse response = userService.getMyProfile(1L);
 
-    assertEquals(createdAt, response.getCreatedAt());
+    assertEquals(updatedAt, response.getUpdatedAt());
   }
 }
