@@ -55,6 +55,7 @@ public class ReviewController {
               description = "리뷰 요청 데이터 (JSON 형식)",
               content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
           @RequestPart("request")
+          @Valid
           ReviewCreateRequest request,
       @Parameter(description = "리뷰 첨부 이미지 파일 리스트 (선택)")
           @RequestPart(value = "images", required = false)
@@ -80,7 +81,7 @@ public class ReviewController {
         schema =
             @Schema(
                 type = "string",
-                allowableValues = {"createdAt,desc", "rating,desc", "rating,asc"}))
+                allowableValues = {"createdAt,desc", "createdAt,asc"}))
   })
   @GetMapping("/reviews")
   public ApiResponse<Page<ReviewResponse>> getAllReviews(
@@ -126,18 +127,15 @@ public class ReviewController {
                               })))
           @RequestParam(value = "facilities", required = false)
           List<String> facilities,
-      @Parameter(
-              description = "최소 별점 (1~5)",
-              schema = @Schema(allowableValues = {"1", "2", "3", "4", "5"}),
-              example = "1")
-          @RequestParam(value = "minRating", required = false, defaultValue = "1")
-          Integer minRating,
+      @Parameter(description = "지역 필터. 서울은 서울 전체, 서울 용산구는 해당 지역 조회. 생략하면 전체", example = "서울")
+          @RequestParam(value = "region", required = false)
+          String region,
       @Parameter(hidden = true)
           @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
           Pageable pageable) {
 
     Page<ReviewResponse> response =
-        reviewService.getAllReviews(category, minRating, mobilities, facilities, pageable);
+        reviewService.getAllReviews(category, region, mobilities, facilities, pageable);
     return ApiResponse.success(response);
   }
 
@@ -150,7 +148,7 @@ public class ReviewController {
         schema =
             @Schema(
                 type = "string",
-                allowableValues = {"createdAt,desc", "rating,desc", "rating,asc"}))
+                allowableValues = {"createdAt,desc", "createdAt,asc"}))
   })
   @GetMapping("/places/{placeId}/reviews")
   public ApiResponse<Page<ReviewResponse>> getPlaceReviews(
@@ -195,18 +193,12 @@ public class ReviewController {
                               })))
           @RequestParam(value = "facilities", required = false)
           List<String> facilities,
-      @Parameter(
-              description = "최소 별점 (1~5)",
-              schema = @Schema(allowableValues = {"1", "2", "3", "4", "5"}),
-              example = "1")
-          @RequestParam(value = "minRating", required = false, defaultValue = "1")
-          Integer minRating,
       @Parameter(hidden = true)
           @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC)
           Pageable pageable) {
 
     Page<ReviewResponse> response =
-        reviewService.getPlaceReviews(placeId, null, minRating, mobilities, facilities, pageable);
+        reviewService.getPlaceReviews(placeId, null, null, mobilities, facilities, pageable);
     return ApiResponse.success(response);
   }
 
@@ -274,13 +266,40 @@ public class ReviewController {
     return ApiResponse.successWithNoContent();
   }
 
-  @Operation(summary = "내 리뷰 수정", description = "작성자만 별점, 내용, 이동 유형, 접근성 시설을 수정할 수 있습니다.")
-  @PatchMapping("/reviews/{reviewId}")
+  @Operation(summary = "내 리뷰 수정", description = "작성자만 내용, 이동 유형, 접근성 시설, 지역 및 이미지를 수정할 수 있습니다.")
+  @PatchMapping(value = "/reviews/{reviewId}", consumes = MediaType.APPLICATION_JSON_VALUE)
   public ApiResponse<?> updateReview(
       @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
       @Parameter(description = "리뷰 ID", example = "1") @PathVariable Long reviewId,
       @Valid @RequestBody ReviewUpdateRequest request) {
-    reviewService.updateReview(userId, reviewId, request);
+    reviewService.updateReview(userId, reviewId, request, null);
+    return ApiResponse.successWithNoContent();
+  }
+
+  @Operation(
+      summary = "내 리뷰 수정 (이미지 포함)",
+      description =
+          "request는 application/json 파트입니다. retainedImageUrls 생략 시 기존 이미지 유지, []이면 전체 제거하며 images 파일은 추가합니다.")
+  @PatchMapping(value = "/reviews/{reviewId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ApiResponse<?> updateReviewWithImages(
+      @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+      @PathVariable Long reviewId,
+      @Parameter(content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
+          @Valid
+          @RequestPart("request")
+          ReviewUpdateRequest request,
+      @RequestPart(value = "images", required = false) List<MultipartFile> images) {
+    reviewService.updateReview(userId, reviewId, request, images);
+    return ApiResponse.successWithNoContent();
+  }
+
+  @Operation(
+      summary = "내 리뷰 삭제",
+      description = "작성자만 삭제할 수 있습니다. 삭제된 리뷰는 모든 목록, 검색, 시설 통계에서 제외됩니다.")
+  @DeleteMapping("/reviews/{reviewId}")
+  public ApiResponse<?> deleteReview(
+      @Parameter(hidden = true) @AuthenticationPrincipal Long userId, @PathVariable Long reviewId) {
+    reviewService.deleteReview(userId, reviewId);
     return ApiResponse.successWithNoContent();
   }
 }

@@ -67,9 +67,8 @@ public class Review extends BaseEntity {
   @Column(nullable = false)
   private PlaceCategory category;
 
-  // 별점 (1~5)
-  @Column(nullable = false)
-  private Integer rating;
+  @Column(length = 100)
+  private String region;
 
   // === Vector DB (pgvector) 매핑 ===
   @JdbcTypeCode(SqlTypes.VECTOR)
@@ -112,7 +111,7 @@ public class Review extends BaseEntity {
       String content,
       String placeName,
       PlaceCategory category,
-      Integer rating,
+      String region,
       float[] embedding,
       List<MobilityType> mobilities,
       List<FacilityType> facilities,
@@ -122,11 +121,11 @@ public class Review extends BaseEntity {
     this.content = content;
     this.placeName = placeName;
     this.category = category != null ? category : PlaceCategory.ETC;
-    this.rating = rating != null ? rating : 5;
+    this.region = region;
     this.embedding = embedding;
-    this.mobilities = mobilities != null ? mobilities : new ArrayList<>();
-    this.facilities = facilities != null ? facilities : new ArrayList<>();
-    this.imageUrls = imageUrls != null ? imageUrls : new ArrayList<>();
+    this.mobilities = mobilities != null ? new ArrayList<>(mobilities) : new ArrayList<>();
+    this.facilities = facilities != null ? new ArrayList<>(facilities) : new ArrayList<>();
+    this.imageUrls = imageUrls != null ? new ArrayList<>(imageUrls) : new ArrayList<>();
   }
 
   /** 리뷰 삭제 (Soft Delete) */
@@ -135,15 +134,22 @@ public class Review extends BaseEntity {
     this.deletedAt = LocalDateTime.now();
   }
 
-  /** 리뷰의 사용자 입력 정보를 수정합니다. 장소 정보와 첨부 이미지는 유지합니다. */
+  /** 리뷰 본문과 검색 벡터, 첨부 이미지를 함께 갱신합니다. */
   public void update(
-      Integer rating,
       String content,
       List<MobilityType> mobilities,
-      List<FacilityType> facilities) {
-    this.rating = rating;
+      List<FacilityType> facilities,
+      List<String> imageUrls,
+      String region,
+      float[] embedding) {
     this.content = content;
-    this.mobilities = mobilities != null ? mobilities : new ArrayList<>();
-    this.facilities = facilities != null ? facilities : new ArrayList<>();
+    this.mobilities.clear();
+    this.mobilities.addAll(mobilities);
+    this.facilities.clear();
+    this.facilities.addAll(facilities);
+    this.imageUrls.clear();
+    this.imageUrls.addAll(imageUrls);
+    this.region = region;
+    this.embedding = embedding;
   }
 }
