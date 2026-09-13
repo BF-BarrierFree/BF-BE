@@ -7,7 +7,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -59,14 +62,17 @@ public class OdsayRouteService {
       String time,
       Integer opt) {
     log.info(
-        "ODsay transit route lookup start. start={},{} end={},{} type={}, time={}, opt={}",
+        "ODsay transit route lookup start. start={},{} end={},{} type={}, time={}, opt={}, baseUrl={}, apiKeyLength={}, apiKeyFingerprint={}",
         startLng,
         startLat,
         endLng,
         endLat,
         searchPathType,
         time,
-        opt);
+        opt,
+        baseUrl,
+        normalizedApiKey(apiKey).length(),
+        apiKeyFingerprint(apiKey));
 
     URI requestUri = buildRequestUri(startLng, startLat, endLng, endLat, searchPathType, time, opt);
 
@@ -146,6 +152,10 @@ public class OdsayRouteService {
   }
 
   private String encodeApiKey(String rawApiKey) {
+    return UriUtils.encodeQueryParam(normalizedApiKey(rawApiKey), StandardCharsets.UTF_8);
+  }
+
+  private String normalizedApiKey(String rawApiKey) {
     if (rawApiKey == null || rawApiKey.isBlank()) {
       throw new CustomException(ErrorCode.ODSAY_API_AUTH_FAILED);
     }
@@ -160,7 +170,18 @@ public class OdsayRouteService {
       normalized = UriUtils.decode(normalized, StandardCharsets.UTF_8);
     }
 
-    return UriUtils.encodeQueryParam(normalized, StandardCharsets.UTF_8);
+    return normalized;
+  }
+
+  private String apiKeyFingerprint(String rawApiKey) {
+    String normalized = normalizedApiKey(rawApiKey);
+    try {
+      byte[] digest =
+          MessageDigest.getInstance("SHA-256").digest(normalized.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(digest).substring(0, 8);
+    } catch (NoSuchAlgorithmException e) {
+      return "unknown";
+    }
   }
 
   private TransitRouteResponse parseTransitRoute(String rawResponse) {
@@ -170,6 +191,11 @@ public class OdsayRouteService {
       if (!errorNode.isMissingNode() && !errorNode.isNull() && !errorNode.isEmpty()) {
         log.warn("ODsay returned error payload: {}", errorNode.toString());
         if (errorNode.toString().contains("ApiKeyAuthFailed")) {
+          log.warn(
+              "ODsay API authentication failed. baseUrl={}, apiKeyLength={}, apiKeyFingerprint={}",
+              baseUrl,
+              normalizedApiKey(apiKey).length(),
+              apiKeyFingerprint(apiKey));
           throw new CustomException(ErrorCode.ODSAY_API_AUTH_FAILED);
         }
         throw new CustomException(ErrorCode.ODSAY_API_FAILED);
