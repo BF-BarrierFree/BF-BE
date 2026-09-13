@@ -6,6 +6,7 @@ import com.barrierfree.bf.route.dto.TransitRouteResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriUtils;
@@ -80,6 +82,7 @@ public class OdsayRouteService {
         webClient
             .get()
             .uri(requestUri)
+            .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
             .retrieve()
             .onStatus(
                 HttpStatusCode::is4xxClientError,
@@ -126,9 +129,7 @@ public class OdsayRouteService {
     StringBuilder requestUrl =
         new StringBuilder(baseUrl)
             .append("/v1/api/searchPubTransPathT")
-            .append("?apiKey=")
-            .append(encodeApiKey(apiKey))
-            .append("&SX=")
+            .append("?SX=")
             .append(startLng)
             .append("&SY=")
             .append(startLat)
@@ -148,11 +149,13 @@ public class OdsayRouteService {
           .append(UriUtils.encodeQueryParam(time.trim(), StandardCharsets.UTF_8));
     }
 
+    requestUrl.append("&apiKey=").append(encodeApiKey(apiKey));
+
     return URI.create(requestUrl.toString());
   }
 
   private String encodeApiKey(String rawApiKey) {
-    return UriUtils.encodeQueryParam(normalizedApiKey(rawApiKey), StandardCharsets.UTF_8);
+    return URLEncoder.encode(normalizedApiKey(rawApiKey), StandardCharsets.UTF_8);
   }
 
   private String normalizedApiKey(String rawApiKey) {
