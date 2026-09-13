@@ -63,6 +63,8 @@ public enum ErrorCode {
   TAGO_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "R005", "공공데이터 버스 정보를 불러오는데 실패했습니다."),
   KAKAO_API_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "R006", "카카오 모빌리티 길찾기 정보를 불러오는데 실패했습니다."),
   KAKAO_API_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "R007", "카카오 모빌리티 API 응답이 지연되고 있습니다."),
+  ODSAY_API_AUTH_FAILED(
+      HttpStatus.SERVICE_UNAVAILABLE, "R008", "ODsay API 인증에 실패했습니다. API 키 설정을 확인해 주세요."),
 
   // --- 코스 관련 에러 (Course) ---
   COURSE_NOT_FOUND(HttpStatus.NOT_FOUND, "C001", "요청하신 코스를 찾을 수 없습니다."),
