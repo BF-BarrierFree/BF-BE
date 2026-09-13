@@ -23,27 +23,131 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ap-northeast-2
 
+      - name: Inspect SSM target
+        shell: bash
+        run: |
+          aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=${{ secrets.EC2_INSTANCE_ID }}" \
+            --output json > ssm-target.json
+
+          cat ssm-target.json
+
+          TARGET_COUNT=$(jq '.InstanceInformationList | length' ssm-target.json)
+          if [ "$TARGET_COUNT" -ne 1 ]; then
+            echo "Expected exactly one SSM managed instance for EC2_INSTANCE_ID, got $TARGET_COUNT."
+            exit 1
+          fi
+
+          PING_STATUS=$(jq -r '.InstanceInformationList[0].PingStatus' ssm-target.json)
+          PLATFORM_TYPE=$(jq -r '.InstanceInformationList[0].PlatformType' ssm-target.json)
+          PLATFORM_NAME=$(jq -r '.InstanceInformationList[0].PlatformName' ssm-target.json)
+          AGENT_VERSION=$(jq -r '.InstanceInformationList[0].AgentVersion' ssm-target.json)
+
+          echo "SSM PingStatus: $PING_STATUS"
+          echo "SSM PlatformType: $PLATFORM_TYPE"
+          echo "SSM PlatformName: $PLATFORM_NAME"
+          echo "SSM AgentVersion: $AGENT_VERSION"
+
+          if [ "$PING_STATUS" != "Online" ]; then
+            echo "SSM target is not Online. Check the EC2 instance profile, SSM Agent, network path to SSM, and region."
+            exit 1
+          fi
+
+          if [ "$PLATFORM_TYPE" != "Linux" ]; then
+            echo "This workflow uses AWS-RunShellScript and /home/ubuntu paths, but the target platform is $PLATFORM_TYPE."
+            exit 1
+          fi
+
       - name: Deploy with SSM
         shell: bash
         run: |
+          PREFLIGHT_COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --timeout-seconds 60 \
+            --parameters 'commands=["echo ssm-preflight-ok","uname -a","id"]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM preflight Command ID: $PREFLIGHT_COMMAND_ID"
+
+          for i in {1..12}; do
+            PREFLIGHT_STATUS=$(aws ssm get-command-invocation \
+              --command-id "$PREFLIGHT_COMMAND_ID" \
+              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+
+            echo "SSM preflight status: $PREFLIGHT_STATUS"
+
+            if [ "$PREFLIGHT_STATUS" = "Success" ]; then
+              aws ssm get-command-invocation \
+                --command-id "$PREFLIGHT_COMMAND_ID" \
+                --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+                --output json
+              break
+            fi
+
+            if [ "$PREFLIGHT_STATUS" = "Failed" ] || \
+               [ "$PREFLIGHT_STATUS" = "TimedOut" ] || \
+               [ "$PREFLIGHT_STATUS" = "Cancelled" ]; then
+
+              echo "SSM preflight failed before deployment commands ran."
+
+              aws ssm get-command-invocation \
+                --command-id "$PREFLIGHT_COMMAND_ID" \
+                --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+                --output json
+
+              aws ssm list-command-invocations \
+                --command-id "$PREFLIGHT_COMMAND_ID" \
+                --details \
+                --output json
+
+              exit 1
+            fi
+
+            sleep 5
+          done
+
+          if [ "$PREFLIGHT_STATUS" != "Success" ]; then
+            echo "SSM preflight did not finish within the expected time."
+            exit 1
+          fi
+
+          cat > ssm-parameters.json <<'JSON'
+          {
+            "commands": [
+              "set -ex",
+              "APP_DIR=/home/ubuntu/BF-BE",
+              "SERVICE_NAME=bf-be",
+              "echo '=== Starting deployment ==='",
+              "date",
+              "whoami",
+              "test -d \"$APP_DIR/.git\"",
+              "sudo -u ubuntu git -C \"$APP_DIR\" fetch --prune origin main",
+              "sudo -u ubuntu git -C \"$APP_DIR\" checkout main",
+              "sudo -u ubuntu git -C \"$APP_DIR\" reset --hard origin/main",
+              "echo '=== Deployed commit ==='",
+              "sudo -u ubuntu git -C \"$APP_DIR\" log -1 --oneline",
+              "sudo -u ubuntu sh -c 'cd /home/ubuntu/BF-BE && chmod +x ./gradlew && ./gradlew clean bootJar -x test --no-daemon'",
+              "systemctl restart \"$SERVICE_NAME\"",
+              "sleep 10",
+              "echo '=== Service status ==='",
+              "systemctl status \"$SERVICE_NAME\" --no-pager -l || true",
+              "echo '=== Recent service logs ==='",
+              "journalctl -u \"$SERVICE_NAME\" -n 100 --no-pager || true",
+              "systemctl is-active --quiet \"$SERVICE_NAME\"",
+              "echo '=== Deployment successful ==='"
+            ]
+          }
+          JSON
+
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
             --timeout-seconds 900 \
-            --parameters 'commands=[
-              "set -e",
-              "echo \"=== Starting deployment ===\"",
-              "sudo -u ubuntu git -C /home/ubuntu/BF-BE fetch origin main",
-              "sudo -u ubuntu git -C /home/ubuntu/BF-BE checkout main",
-              "sudo -u ubuntu git -C /home/ubuntu/BF-BE reset --hard origin/main",
-              "echo \"=== Deployed commit ===\"",
-              "sudo -u ubuntu git -C /home/ubuntu/BF-BE log -1 --oneline",
-             "sudo -u ubuntu bash -c \"cd /home/ubuntu/BF-BE && ./gradlew build -x test --no-daemon -Dorg.gradle.jvmargs=\\\"-Xmx512m\\\"\"",
-              "systemctl restart bf-be",
-              "sleep 10",
-              "systemctl is-active --quiet bf-be",
-              "echo \"=== Deployment successful ===\""
-            ]' \
+            --parameters file://ssm-parameters.json \
             --query "Command.CommandId" \
             --output text)
 
@@ -73,7 +177,13 @@ jobs:
 
               aws ssm get-command-invocation \
                 --command-id "$COMMAND_ID" \
-                --instance-id "${{ secrets.EC2_INSTANCE_ID }}"
+                --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+                --output json
+
+              aws ssm list-command-invocations \
+                --command-id "$COMMAND_ID" \
+                --details \
+                --output json
 
               exit 1
             fi
@@ -86,7 +196,13 @@ jobs:
 
             aws ssm get-command-invocation \
               --command-id "$COMMAND_ID" \
-              --instance-id "${{ secrets.EC2_INSTANCE_ID }}"
+              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+              --output json
+
+            aws ssm list-command-invocations \
+              --command-id "$COMMAND_ID" \
+              --details \
+              --output json
 
             exit 1
           fi
@@ -95,4 +211,5 @@ jobs:
 
           aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.EC2_INSTANCE_ID }}"
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --output json
