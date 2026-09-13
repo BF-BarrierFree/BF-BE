@@ -5,6 +5,8 @@ import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.route.dto.TransitRouteResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriUtils;
 import reactor.core.publisher.Mono;
 
 @Slf4j
@@ -65,28 +68,12 @@ public class OdsayRouteService {
         time,
         opt);
 
+    URI requestUri = buildRequestUri(startLng, startLat, endLng, endLat, searchPathType, time, opt);
+
     String rawResponse =
         webClient
             .get()
-            .uri(
-                uriBuilder -> {
-                  uriBuilder
-                      .path("/v1/api/searchPubTransPathT")
-                      .queryParam("apiKey", apiKey)
-                      .queryParam("SX", startLng)
-                      .queryParam("SY", startLat)
-                      .queryParam("EX", endLng)
-                      .queryParam("EY", endLat)
-                      .queryParam("SearchType", 0)
-                      .queryParam("SearchPathType", searchPathType != null ? searchPathType : 0)
-                      .queryParam("OPT", opt != null ? opt : 0);
-
-                  if (time != null && !time.isBlank()) {
-                    uriBuilder.queryParam("time", time);
-                  }
-
-                  return uriBuilder.build();
-                })
+            .uri(requestUri)
             .retrieve()
             .onStatus(
                 HttpStatusCode::is4xxClientError,
@@ -107,6 +94,9 @@ public class OdsayRouteService {
             .bodyToMono(String.class)
             .onErrorMap(
                 throwable -> {
+                  if (throwable instanceof CustomException) {
+                    return throwable;
+                  }
                   log.error("ODsay request failed: {}", throwable.getMessage());
                   return new CustomException(ErrorCode.ODSAY_API_FAILED);
                 })
@@ -119,12 +109,69 @@ public class OdsayRouteService {
     return rawResponse;
   }
 
+  private URI buildRequestUri(
+      double startLng,
+      double startLat,
+      double endLng,
+      double endLat,
+      Integer searchPathType,
+      String time,
+      Integer opt) {
+    StringBuilder requestUrl =
+        new StringBuilder(baseUrl)
+            .append("/v1/api/searchPubTransPathT")
+            .append("?apiKey=")
+            .append(encodeApiKey(apiKey))
+            .append("&SX=")
+            .append(startLng)
+            .append("&SY=")
+            .append(startLat)
+            .append("&EX=")
+            .append(endLng)
+            .append("&EY=")
+            .append(endLat)
+            .append("&SearchType=0")
+            .append("&SearchPathType=")
+            .append(searchPathType != null ? searchPathType : 0)
+            .append("&OPT=")
+            .append(opt != null ? opt : 0);
+
+    if (time != null && !time.isBlank()) {
+      requestUrl
+          .append("&time=")
+          .append(UriUtils.encodeQueryParam(time.trim(), StandardCharsets.UTF_8));
+    }
+
+    return URI.create(requestUrl.toString());
+  }
+
+  private String encodeApiKey(String rawApiKey) {
+    if (rawApiKey == null || rawApiKey.isBlank()) {
+      throw new CustomException(ErrorCode.ODSAY_API_AUTH_FAILED);
+    }
+
+    String normalized = rawApiKey.trim();
+    if ((normalized.startsWith("\"") && normalized.endsWith("\""))
+        || (normalized.startsWith("'") && normalized.endsWith("'"))) {
+      normalized = normalized.substring(1, normalized.length() - 1).trim();
+    }
+
+    if (normalized.contains("%")) {
+      normalized = UriUtils.decode(normalized, StandardCharsets.UTF_8);
+    }
+
+    return UriUtils.encodeQueryParam(normalized, StandardCharsets.UTF_8);
+  }
+
   private TransitRouteResponse parseTransitRoute(String rawResponse) {
     try {
       JsonNode root = OBJECT_MAPPER.readTree(rawResponse);
       JsonNode errorNode = root.path("error");
       if (!errorNode.isMissingNode() && !errorNode.isNull() && !errorNode.isEmpty()) {
         log.warn("ODsay returned error payload: {}", errorNode.toString());
+        if (errorNode.toString().contains("ApiKeyAuthFailed")) {
+          throw new CustomException(ErrorCode.ODSAY_API_AUTH_FAILED);
+        }
         throw new CustomException(ErrorCode.ODSAY_API_FAILED);
       }
 
