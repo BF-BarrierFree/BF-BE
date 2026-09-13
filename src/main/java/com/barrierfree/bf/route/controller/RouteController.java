@@ -4,6 +4,7 @@ import com.barrierfree.bf.global.response.ApiResponse;
 import com.barrierfree.bf.route.dto.TransitRouteResponse;
 import com.barrierfree.bf.route.dto.VehicleRouteResponse;
 import com.barrierfree.bf.route.dto.WalkingRouteResponse;
+import com.barrierfree.bf.route.dto.WheelchairRouteResponse;
 import com.barrierfree.bf.route.service.KakaoMobilityService;
 import com.barrierfree.bf.route.service.OdsayRouteService;
 import com.barrierfree.bf.route.service.OrsRouteService;
@@ -31,7 +32,7 @@ public class RouteController {
   private final KakaoMobilityService kakaoMobilityService;
   private final RouteSearchHistoryService routeSearchHistoryService;
 
-  @Operation(summary = "도보 경로 탐색", description = "출발지와 도착지 좌표를 기준으로 접근성 도보 경로를 조회합니다.")
+  @Operation(summary = "도보 경로 탐색", description = "출발지와 도착지 좌표를 기준으로 일반 도보 경로를 조회합니다.")
   @GetMapping("/walk")
   public ApiResponse<WalkingRouteResponse> getWalkingRoute(
       @Parameter(description = "출발지 경도", example = "126.9706069") @RequestParam double startLng,
@@ -40,8 +41,21 @@ public class RouteController {
       @Parameter(description = "도착지 위도", example = "37.497942") @RequestParam double endLat) {
     routeSearchHistoryService.save("WALK", startLng, startLat, endLng, endLat);
     WalkingRouteResponse response =
-        orsRouteService.getAccessibleWalkingRoute(startLng, startLat, endLng, endLat);
+        orsRouteService.getWalkingRoute(startLng, startLat, endLng, endLat);
     return ApiResponse.success(response, "도보 경로를 성공적으로 찾았습니다.");
+  }
+
+  @Operation(summary = "휠체어 경로 탐색", description = "출발지와 도착지 좌표를 기준으로 휠체어 이동 경로를 조회합니다.")
+  @GetMapping("/wheelchair")
+  public ApiResponse<WheelchairRouteResponse> getWheelchairRoute(
+      @Parameter(description = "출발지 경도", example = "126.9706069") @RequestParam double startLng,
+      @Parameter(description = "출발지 위도", example = "37.5546788") @RequestParam double startLat,
+      @Parameter(description = "도착지 경도", example = "127.0277194") @RequestParam double endLng,
+      @Parameter(description = "도착지 위도", example = "37.497942") @RequestParam double endLat) {
+    routeSearchHistoryService.save("WHEELCHAIR", startLng, startLat, endLng, endLat);
+    WheelchairRouteResponse response =
+        orsRouteService.getWheelchairRoute(startLng, startLat, endLng, endLat);
+    return ApiResponse.success(response, "휠체어 경로를 성공적으로 찾았습니다.");
   }
 
   @Operation(summary = "차량 경로 탐색", description = "출발지와 도착지 좌표를 기준으로 차량 이동 경로를 조회합니다.")
