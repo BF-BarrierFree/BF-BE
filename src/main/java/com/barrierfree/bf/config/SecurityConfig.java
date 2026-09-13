@@ -84,6 +84,7 @@ public class SecurityConfig {
                         "/api/v1/terms/**",
                         "/api/v1/policies",
                         "/api/v1/policies/**",
+                        "api/v1/taxis/centers/nearby",
                         "/api/v1/users/check-nickname")
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/v1/terms")
