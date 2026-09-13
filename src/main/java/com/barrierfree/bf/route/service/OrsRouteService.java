@@ -50,14 +50,12 @@ public class OrsRouteService {
   @Cacheable(
       value = "ors_routes",
       key = "'walk_' + #startLng + '_' + #startLat + '_' + #endLng + '_' + #endLat")
-  public WalkingRouteResponse getAccessibleWalkingRoute(
+  public WalkingRouteResponse getWalkingRoute(
       double startLng, double startLat, double endLng, double endLat) {
     OrsGeoJsonResponse rawResponse =
         fetchRoute(
-            WHEELCHAIR_PROFILE,
-            OrsRouteRequest.createWheelchair(startLng, startLat, endLng, endLat));
-    WheelchairRouteResponse route = WheelchairRouteResponse.from(rawResponse);
-    return WalkingRouteResponse.from(route, true, "WHEELCHAIR_ACCESSIBLE");
+            WALKING_PROFILE, OrsRouteRequest.createWalking(startLng, startLat, endLng, endLat));
+    return WalkingRouteResponse.from(rawResponse);
   }
 
   @Cacheable(
