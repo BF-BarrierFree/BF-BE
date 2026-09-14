@@ -51,7 +51,8 @@ public class PolicyDocumentController {
   public ApiResponse<List<PolicyDocumentResponse>> getPolicyVersions(
       @Parameter(description = "정책 문서 카테고리", example = "PRIVACY_POLICY") @PathVariable
           String category) {
-    return ApiResponse.success(policyDocumentService.getPolicyVersions(category), "정책 문서 버전 이력 조회 성공");
+    return ApiResponse.success(
+        policyDocumentService.getPolicyVersions(category), "정책 문서 버전 이력 조회 성공");
   }
 
   @PatchMapping("/{category}")
@@ -60,6 +61,7 @@ public class PolicyDocumentController {
       @Parameter(description = "정책 문서 카테고리", example = "PRIVACY_POLICY") @PathVariable
           String category,
       @Valid @RequestBody PolicyDocumentUpdateRequest request) {
-    return ApiResponse.success(policyDocumentService.publishPolicy(category, request), "정책 문서 수정 성공");
+    return ApiResponse.success(
+        policyDocumentService.publishPolicy(category, request), "정책 문서 수정 성공");
   }
 }
