@@ -60,7 +60,9 @@ public class PolicyDocumentService {
     PolicyDocument latestRevision =
         policyDocumentRepository.findFirstByCategoryOrderByVersionDesc(category).orElse(null);
     int nextVersion = latestRevision == null ? 1 : latestRevision.getVersion() + 1;
-    policyDocumentRepository.findByCategoryAndIsActiveTrue(category).ifPresent(PolicyDocument::deactivate);
+    policyDocumentRepository
+        .findByCategoryAndIsActiveTrue(category)
+        .ifPresent(PolicyDocument::deactivate);
 
     PolicyDocument policyDocument =
         PolicyDocument.builder()
