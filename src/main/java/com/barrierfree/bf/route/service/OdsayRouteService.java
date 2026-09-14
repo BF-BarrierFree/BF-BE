@@ -10,6 +10,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -29,8 +32,12 @@ import reactor.core.publisher.Mono;
 public class OdsayRouteService {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final ZoneId SEOUL_ZONE_ID = ZoneId.of("Asia/Seoul");
+  private static final DateTimeFormatter ARRIVAL_TIME_FORMATTER =
+      DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
   private final WebClient webClient;
+  private final TagoRouteService tagoRouteService;
 
   @Value("${odsay.api.base-url}")
   private String baseUrl;
@@ -253,22 +260,35 @@ public class OdsayRouteService {
       }
     }
 
+    Integer transferCount = intValue(info, "transferCount");
+    if (transferCount == null) {
+      transferCount = calculateTransferCount(segments);
+    }
+
+    Integer totalTimeMinute = intValue(info, "totalTime");
+
     return new TransitRouteResponse.RouteOption(
         intValue(pathNode, "pathType"),
-        intValue(info, "totalTime"),
+        totalTimeMinute,
         intValue(info, "totalDistance"),
+        intValue(info, "totalWalk"),
         intValue(info, "payment"),
-        intValue(info, "transferCount"),
+        transferCount,
         textValue(info, "lastEndStation"),
+        estimatedArrivalTime(totalTimeMinute),
+        collectPathCoordinates(segments),
         segments);
   }
 
   private TransitRouteResponse.Segment parseSegment(JsonNode subPath) {
     if (subPath == null || subPath.isMissingNode() || subPath.isNull()) {
-      return new TransitRouteResponse.Segment(null, null, null, null, null, List.of());
+      return new TransitRouteResponse.Segment(
+          null, null, null, null, null, null, null, null, null, null, List.of(), List.of(),
+          List.of(), List.of(), false, List.of(), List.of());
     }
 
     List<String> laneNames = new ArrayList<>();
+    List<TransitRouteResponse.Lane> laneResponses = new ArrayList<>();
     JsonNode lanes = subPath.path("lane");
     if (lanes.isArray()) {
       for (JsonNode lane : lanes) {
@@ -276,8 +296,23 @@ public class OdsayRouteService {
         if (name != null && !name.isBlank()) {
           laneNames.add(name);
         }
+        laneResponses.add(
+            new TransitRouteResponse.Lane(
+                name,
+                textValue(lane, "busNo"),
+                intValue(lane, "type"),
+                busTypeName(intValue(lane, "type")),
+                textValue(lane, "busID"),
+                intValue(lane, "subwayCode"),
+                textValue(lane, "subwayCityCode")));
       }
     }
+
+    List<TransitRouteResponse.Stop> passStops = parsePassStops(subPath.path("passStopList"));
+    List<TransitRouteResponse.Point> pathCoordinates =
+        collectSegmentPathCoordinates(subPath, passStops);
+    TagoRouteService.RealtimeBusSnapshot realtimeSnapshot =
+        fetchRealtimeBusSnapshot(subPath, laneResponses);
 
     return new TransitRouteResponse.Segment(
         intValue(subPath, "trafficType"),
@@ -285,7 +320,133 @@ public class OdsayRouteService {
         textValue(subPath, "endName"),
         intValue(subPath, "distance"),
         intValue(subPath, "sectionTime"),
-        laneNames);
+        intValue(subPath, "stationCount"),
+        coordinateValue(subPath, "startX"),
+        coordinateValue(subPath, "startY"),
+        coordinateValue(subPath, "endX"),
+        coordinateValue(subPath, "endY"),
+        laneNames,
+        laneResponses,
+        passStops,
+        pathCoordinates,
+        !realtimeSnapshot.arrivals().isEmpty() || !realtimeSnapshot.locations().isEmpty(),
+        realtimeSnapshot.arrivals(),
+        realtimeSnapshot.locations());
+  }
+
+  private TagoRouteService.RealtimeBusSnapshot fetchRealtimeBusSnapshot(
+      JsonNode subPath, List<TransitRouteResponse.Lane> lanes) {
+    if (intValue(subPath, "trafficType") == null || intValue(subPath, "trafficType") != 2) {
+      return TagoRouteService.RealtimeBusSnapshot.empty();
+    }
+    if (lanes.isEmpty()) {
+      return TagoRouteService.RealtimeBusSnapshot.empty();
+    }
+
+    String busNo = lanes.get(0).busNo();
+    if (busNo == null || busNo.isBlank()) {
+      busNo = lanes.get(0).name();
+    }
+
+    return tagoRouteService.getRealtimeBusSnapshot(
+        coordinateValue(subPath, "startY"), coordinateValue(subPath, "startX"), busNo);
+  }
+
+  private String busTypeName(Integer type) {
+    if (type == null) {
+      return null;
+    }
+    return switch (type) {
+      case 1 -> "일반";
+      case 2 -> "좌석";
+      case 3 -> "마을버스";
+      case 4 -> "직행좌석";
+      case 5 -> "공항버스";
+      case 6 -> "간선급행";
+      case 10 -> "외곽";
+      case 11 -> "간선";
+      case 12 -> "지선";
+      case 13 -> "순환";
+      case 14 -> "광역";
+      case 15 -> "급행";
+      case 16 -> "관광버스";
+      case 20 -> "농어촌버스";
+      case 22 -> "경기도 시외형버스";
+      case 26 -> "급행간선";
+      case 30 -> "한강버스";
+      default -> "기타";
+    };
+  }
+
+  private Integer calculateTransferCount(List<TransitRouteResponse.Segment> segments) {
+    long transitSegmentCount =
+        segments.stream()
+            .filter(segment -> segment.trafficType() != null && segment.trafficType() != 3)
+            .count();
+    return Math.max(0, (int) transitSegmentCount - 1);
+  }
+
+  private String estimatedArrivalTime(Integer totalTimeMinute) {
+    if (totalTimeMinute == null) {
+      return null;
+    }
+    return ZonedDateTime.now(SEOUL_ZONE_ID)
+        .plusMinutes(totalTimeMinute)
+        .format(ARRIVAL_TIME_FORMATTER);
+  }
+
+  private List<TransitRouteResponse.Stop> parsePassStops(JsonNode passStopList) {
+    JsonNode stations = passStopList.path("stations");
+    if (!stations.isArray()) {
+      return List.of();
+    }
+
+    List<TransitRouteResponse.Stop> stops = new ArrayList<>();
+    for (JsonNode station : stations) {
+      stops.add(
+          new TransitRouteResponse.Stop(
+              intValue(station, "index"),
+              textValue(station, "stationID"),
+              textValue(station, "stationName"),
+              coordinateValue(station, "x"),
+              coordinateValue(station, "y")));
+    }
+    return stops;
+  }
+
+  private List<TransitRouteResponse.Point> collectSegmentPathCoordinates(
+      JsonNode subPath, List<TransitRouteResponse.Stop> passStops) {
+    List<TransitRouteResponse.Point> points = new ArrayList<>();
+    addPoint(points, coordinateValue(subPath, "startX"), coordinateValue(subPath, "startY"));
+    for (TransitRouteResponse.Stop stop : passStops) {
+      addPoint(points, stop.lng(), stop.lat());
+    }
+    addPoint(points, coordinateValue(subPath, "endX"), coordinateValue(subPath, "endY"));
+    return points;
+  }
+
+  private List<TransitRouteResponse.Point> collectPathCoordinates(
+      List<TransitRouteResponse.Segment> segments) {
+    List<TransitRouteResponse.Point> points = new ArrayList<>();
+    for (TransitRouteResponse.Segment segment : segments) {
+      for (TransitRouteResponse.Point point : segment.pathCoordinates()) {
+        addPoint(points, point.lng(), point.lat());
+      }
+    }
+    return points;
+  }
+
+  private void addPoint(List<TransitRouteResponse.Point> points, Double lng, Double lat) {
+    if (lng == null || lat == null) {
+      return;
+    }
+    if (!points.isEmpty()) {
+      TransitRouteResponse.Point lastPoint = points.get(points.size() - 1);
+      if (lng.equals(lastPoint.lng()) && lat.equals(lastPoint.lat())) {
+        return;
+      }
+    }
+    points.add(new TransitRouteResponse.Point(lng, lat));
   }
 
   private Integer intValue(JsonNode node, String fieldName) {
@@ -302,5 +463,27 @@ public class OdsayRouteService {
     }
     JsonNode field = node.get(fieldName);
     return field == null || field.isNull() ? null : field.asText();
+  }
+
+  private Double coordinateValue(JsonNode node, String fieldName) {
+    if (node == null || node.isMissingNode() || node.isNull()) {
+      return null;
+    }
+    JsonNode field = node.get(fieldName);
+    if (field == null || field.isNull()) {
+      return null;
+    }
+    if (field.isNumber()) {
+      return field.asDouble();
+    }
+    String value = field.asText();
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    try {
+      return Double.parseDouble(value);
+    } catch (NumberFormatException e) {
+      return null;
+    }
   }
 }
