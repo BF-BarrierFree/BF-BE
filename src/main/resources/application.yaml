@@ -72,6 +72,12 @@ tago:
     taxi-center-base-url: https://apis.data.go.kr/B551982/tsdo_v2
     service-key: ${DATA_GO_KR_API_KEY}
 
+seoul:
+  bus:
+    api:
+      base-url: http://ws.bus.go.kr/api/rest
+      service-key: ${DATA_GO_KR_API_KEY}
+
 odsay:
   api:
     base-url: https://api.odsay.com
