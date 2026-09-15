@@ -240,8 +240,10 @@ public class TagoRouteService {
           continue;
         }
 
-        List<String> routeIds = findRouteIdsByRouteNo(cityCode, busNo);
-        for (String routeId : routeIds) {
+        List<RouteCandidate> routeCandidates = findRouteCandidatesByRouteNo(cityCode, busNo);
+        for (RouteCandidate routeCandidate : routeCandidates) {
+          String routeId = routeCandidate.routeId();
+          String routeNo = routeCandidate.routeNo();
           if (fallbackRouteId == null) {
             fallbackRouteId = routeId;
             fallbackCityCode = cityCode;
@@ -262,7 +264,7 @@ public class TagoRouteService {
           List<TransitRouteResponse.RealtimeArrival> arrivals =
               arrivalItems.stream().map(this::toRealtimeArrival).toList();
           List<TransitRouteResponse.BusLocation> locations =
-              findBusLocations(cityCode, routeId, busNo);
+              findBusLocations(cityCode, routeId, routeNo);
 
           return new RealtimeBusSnapshot(arrivals, locations);
         }
@@ -433,11 +435,12 @@ public class TagoRouteService {
   }
 
   private String findRouteIdByRouteNo(String cityCode, String busNo) throws Exception {
-    List<String> routeIds = findRouteIdsByRouteNo(cityCode, busNo);
-    return routeIds.isEmpty() ? null : routeIds.get(0);
+    List<RouteCandidate> routeCandidates = findRouteCandidatesByRouteNo(cityCode, busNo);
+    return routeCandidates.isEmpty() ? null : routeCandidates.get(0).routeId();
   }
 
-  private List<String> findRouteIdsByRouteNo(String cityCode, String busNo) throws Exception {
+  private List<RouteCandidate> findRouteCandidatesByRouteNo(String cityCode, String busNo)
+      throws Exception {
     String requestUrl =
         routeBaseUrl
             + "/getRouteNoList"
@@ -458,25 +461,26 @@ public class TagoRouteService {
       return List.of();
     }
 
-    List<String> exactRouteIds = new ArrayList<>();
-    List<String> fallbackRouteIds = new ArrayList<>();
+    List<RouteCandidate> routeCandidates = new ArrayList<>();
     if (items.isArray()) {
       for (JsonNode item : items) {
         String routeId = textValue(item, "routeid");
+        String routeNo = textValue(item, "routeno");
         if (routeId == null || routeId.isBlank()) {
           continue;
         }
-        if (busNoMatches(textValue(item, "routeno"), busNo)) {
-          exactRouteIds.add(routeId);
-        } else {
-          fallbackRouteIds.add(routeId);
+        if (busNoMatches(routeNo, busNo)) {
+          routeCandidates.add(new RouteCandidate(routeId, firstNonBlank(routeNo, busNo)));
         }
       }
-      return exactRouteIds.isEmpty() ? fallbackRouteIds : exactRouteIds;
+      return routeCandidates;
     }
 
     String routeId = textValue(items, "routeid");
-    return routeId == null || routeId.isBlank() ? List.of() : List.of(routeId);
+    String routeNo = textValue(items, "routeno");
+    return routeId == null || routeId.isBlank() || !busNoMatches(routeNo, busNo)
+        ? List.of()
+        : List.of(new RouteCandidate(routeId, firstNonBlank(routeNo, busNo)));
   }
 
   private JsonNode findNearestRouteStation(Double lat, Double lng, String cityCode, String routeId)
@@ -647,9 +651,7 @@ public class TagoRouteService {
     String normalizedRequested = normalizeBusNo(requested);
     return normalizedCandidate != null
         && normalizedRequested != null
-        && (normalizedCandidate.equals(normalizedRequested)
-            || normalizedCandidate.contains(normalizedRequested)
-            || normalizedRequested.contains(normalizedCandidate));
+        && normalizedCandidate.equals(normalizedRequested);
   }
 
   private String normalizeBusNo(String busNo) {
@@ -659,12 +661,14 @@ public class TagoRouteService {
     StringBuilder normalized = new StringBuilder();
     for (int i = 0; i < busNo.length(); i++) {
       char ch = busNo.charAt(i);
-      if (Character.isLetterOrDigit(ch)) {
+      if ((ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
         normalized.append(Character.toLowerCase(ch));
       }
     }
     return normalized.isEmpty() ? null : normalized.toString();
   }
+
+  private record RouteCandidate(String routeId, String routeNo) {}
 
   private String encodedServiceKey() {
     String key = serviceKey == null ? "" : serviceKey.trim();

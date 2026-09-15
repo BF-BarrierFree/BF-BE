@@ -38,6 +38,7 @@ public class OdsayRouteService {
 
   private final WebClient webClient;
   private final TagoRouteService tagoRouteService;
+  private final SeoulBusRouteService seoulBusRouteService;
 
   @Value("${odsay.api.base-url}")
   private String baseUrl;
@@ -348,8 +349,15 @@ public class OdsayRouteService {
       busNo = lanes.get(0).name();
     }
 
-    return tagoRouteService.getRealtimeBusSnapshot(
-        coordinateValue(subPath, "startY"), coordinateValue(subPath, "startX"), busNo);
+    Double startLat = coordinateValue(subPath, "startY");
+    Double startLng = coordinateValue(subPath, "startX");
+    TagoRouteService.RealtimeBusSnapshot tagoSnapshot =
+        tagoRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo);
+    if (!tagoSnapshot.arrivals().isEmpty() || !tagoSnapshot.locations().isEmpty()) {
+      return tagoSnapshot;
+    }
+
+    return seoulBusRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo);
   }
 
   private String busTypeName(Integer type) {
