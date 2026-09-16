@@ -219,14 +219,17 @@ public class OdsayRouteService {
 
       List<TransitRouteResponse.RouteOption> routes = new ArrayList<>();
       if (pathNodes.isArray()) {
+        boolean realtimeEnriched = false;
         for (JsonNode pathNode : pathNodes) {
-          TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNode);
+          TransitRouteResponse.RouteOption routeOption =
+              parseRouteOption(pathNode, !realtimeEnriched);
           if (routeOption != null) {
             routes.add(routeOption);
+            realtimeEnriched = true;
           }
         }
       } else {
-        TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNodes);
+        TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNodes, true);
         if (routeOption != null) {
           routes.add(routeOption);
         }
@@ -247,7 +250,8 @@ public class OdsayRouteService {
     }
   }
 
-  private TransitRouteResponse.RouteOption parseRouteOption(JsonNode pathNode) {
+  private TransitRouteResponse.RouteOption parseRouteOption(
+      JsonNode pathNode, boolean enrichRealtime) {
     if (pathNode == null || pathNode.isMissingNode() || pathNode.isNull()) {
       return null;
     }
@@ -257,7 +261,7 @@ public class OdsayRouteService {
     JsonNode subPaths = pathNode.path("subPath");
     if (subPaths.isArray()) {
       for (JsonNode subPath : subPaths) {
-        segments.add(parseSegment(subPath));
+        segments.add(parseSegment(subPath, enrichRealtime));
       }
     }
 
@@ -281,7 +285,7 @@ public class OdsayRouteService {
         segments);
   }
 
-  private TransitRouteResponse.Segment parseSegment(JsonNode subPath) {
+  private TransitRouteResponse.Segment parseSegment(JsonNode subPath, boolean enrichRealtime) {
     if (subPath == null || subPath.isMissingNode() || subPath.isNull()) {
       return new TransitRouteResponse.Segment(
           null, null, null, null, null, null, null, null, null, null, List.of(), List.of(),
@@ -313,7 +317,9 @@ public class OdsayRouteService {
     List<TransitRouteResponse.Point> pathCoordinates =
         collectSegmentPathCoordinates(subPath, passStops);
     TagoRouteService.RealtimeBusSnapshot realtimeSnapshot =
-        fetchRealtimeBusSnapshot(subPath, laneResponses);
+        enrichRealtime
+            ? fetchRealtimeBusSnapshot(subPath, laneResponses)
+            : TagoRouteService.RealtimeBusSnapshot.empty();
 
     return new TransitRouteResponse.Segment(
         intValue(subPath, "trafficType"),
