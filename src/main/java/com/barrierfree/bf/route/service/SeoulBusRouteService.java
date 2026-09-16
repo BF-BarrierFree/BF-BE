@@ -40,13 +40,17 @@ public class SeoulBusRouteService {
 
   public TagoRouteService.RealtimeBusSnapshot getRealtimeBusSnapshot(
       Double lat, Double lng, String busNo) {
-    if (lat == null || lng == null || busNo == null || busNo.isBlank()) {
+    String searchableBusNo = normalizeBusNo(busNo);
+    if (lat == null || lng == null || searchableBusNo == null) {
       return TagoRouteService.RealtimeBusSnapshot.empty();
     }
+    searchableBusNo = searchableBusNo.toUpperCase();
 
     try {
-      RouteCandidate route = findRoute(busNo);
+      RouteCandidate route = findRoute(searchableBusNo);
       if (route == null) {
+        log.debug(
+            "Seoul bus route not found. busNo={}, searchableBusNo={}", busNo, searchableBusNo);
         return TagoRouteService.RealtimeBusSnapshot.empty();
       }
 

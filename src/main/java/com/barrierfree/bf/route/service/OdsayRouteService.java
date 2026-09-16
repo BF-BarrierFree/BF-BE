@@ -15,7 +15,9 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -219,13 +221,10 @@ public class OdsayRouteService {
 
       List<TransitRouteResponse.RouteOption> routes = new ArrayList<>();
       if (pathNodes.isArray()) {
-        boolean realtimeEnriched = false;
         for (JsonNode pathNode : pathNodes) {
-          TransitRouteResponse.RouteOption routeOption =
-              parseRouteOption(pathNode, !realtimeEnriched);
+          TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNode, true);
           if (routeOption != null) {
             routes.add(routeOption);
-            realtimeEnriched = true;
           }
         }
       } else {
@@ -350,20 +349,34 @@ public class OdsayRouteService {
       return TagoRouteService.RealtimeBusSnapshot.empty();
     }
 
-    String busNo = lanes.get(0).busNo();
-    if (busNo == null || busNo.isBlank()) {
-      busNo = lanes.get(0).name();
-    }
-
     Double startLat = coordinateValue(subPath, "startY");
     Double startLng = coordinateValue(subPath, "startX");
-    TagoRouteService.RealtimeBusSnapshot tagoSnapshot =
-        tagoRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo);
-    if (!tagoSnapshot.arrivals().isEmpty() || !tagoSnapshot.locations().isEmpty()) {
-      return tagoSnapshot;
+    List<TransitRouteResponse.RealtimeArrival> arrivals = new ArrayList<>();
+    List<TransitRouteResponse.BusLocation> locations = new ArrayList<>();
+    Set<String> requestedBusNos = new LinkedHashSet<>();
+    for (TransitRouteResponse.Lane lane : lanes) {
+      String busNo = firstNonBlank(lane.busNo(), lane.name());
+      if (busNo == null || !requestedBusNos.add(busNo)) {
+        continue;
+      }
+
+      TagoRouteService.RealtimeBusSnapshot tagoSnapshot =
+          tagoRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo);
+      if (!tagoSnapshot.arrivals().isEmpty() || !tagoSnapshot.locations().isEmpty()) {
+        arrivals.addAll(tagoSnapshot.arrivals());
+        locations.addAll(tagoSnapshot.locations());
+        continue;
+      }
+
+      TagoRouteService.RealtimeBusSnapshot seoulSnapshot =
+          seoulBusRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo);
+      if (!seoulSnapshot.arrivals().isEmpty() || !seoulSnapshot.locations().isEmpty()) {
+        arrivals.addAll(seoulSnapshot.arrivals());
+        locations.addAll(seoulSnapshot.locations());
+      }
     }
 
-    return seoulBusRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo);
+    return new TagoRouteService.RealtimeBusSnapshot(arrivals, locations);
   }
 
   private String busTypeName(Integer type) {
@@ -477,6 +490,13 @@ public class OdsayRouteService {
     }
     JsonNode field = node.get(fieldName);
     return field == null || field.isNull() ? null : field.asText();
+  }
+
+  private String firstNonBlank(String first, String second) {
+    if (first != null && !first.isBlank()) {
+      return first;
+    }
+    return second == null || second.isBlank() ? null : second;
   }
 
   private Double coordinateValue(JsonNode node, String fieldName) {

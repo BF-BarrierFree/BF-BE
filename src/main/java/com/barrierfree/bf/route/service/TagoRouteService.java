@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,7 @@ import reactor.core.publisher.Mono;
 public class TagoRouteService {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final Duration REALTIME_API_TIMEOUT = Duration.ofSeconds(3);
 
   private final WebClient tagoWebClient;
 
@@ -312,8 +314,7 @@ public class TagoRouteService {
             + "&pageNo=1"
             + "&_type=json";
 
-    String rawResponse =
-        tagoWebClient.get().uri(requestUrl).retrieve().bodyToMono(String.class).block();
+    String rawResponse = requestString(requestUrl);
     JsonNode items = itemsNode(rawResponse);
     if (items == null || items.isMissingNode() || items.isNull()) {
       return List.of();
@@ -350,8 +351,7 @@ public class TagoRouteService {
             + "&pageNo=1"
             + "&_type=json";
 
-    String rawResponse =
-        tagoWebClient.get().uri(requestUrl).retrieve().bodyToMono(String.class).block();
+    String rawResponse = requestString(requestUrl);
     JsonNode items = itemsNode(rawResponse);
     if (items == null || items.isMissingNode() || items.isNull()) {
       return List.of();
@@ -385,8 +385,7 @@ public class TagoRouteService {
             + "&pageNo=1"
             + "&_type=json";
 
-    String rawResponse =
-        tagoWebClient.get().uri(requestUrl).retrieve().bodyToMono(String.class).block();
+    String rawResponse = requestString(requestUrl);
     JsonNode items = itemsNode(rawResponse);
     if (items == null || items.isMissingNode() || items.isNull()) {
       return findBusArrivalItems(cityCode, nodeId, busNo);
@@ -416,8 +415,7 @@ public class TagoRouteService {
             + "&pageNo=1"
             + "&_type=json";
 
-    String rawResponse =
-        tagoWebClient.get().uri(requestUrl).retrieve().bodyToMono(String.class).block();
+    String rawResponse = requestString(requestUrl);
     JsonNode items = itemsNode(rawResponse);
     if (items == null || items.isMissingNode() || items.isNull()) {
       return List.of();
@@ -454,8 +452,7 @@ public class TagoRouteService {
             + "&pageNo=1"
             + "&_type=json";
 
-    String rawResponse =
-        tagoWebClient.get().uri(requestUrl).retrieve().bodyToMono(String.class).block();
+    String rawResponse = requestString(requestUrl);
     JsonNode items = itemsNode(rawResponse);
     if (items == null || items.isMissingNode() || items.isNull()) {
       return List.of();
@@ -502,8 +499,7 @@ public class TagoRouteService {
             + "&pageNo=1"
             + "&_type=json";
 
-    String rawResponse =
-        tagoWebClient.get().uri(requestUrl).retrieve().bodyToMono(String.class).block();
+    String rawResponse = requestString(requestUrl);
     JsonNode items = itemsNode(rawResponse);
     if (items == null || items.isMissingNode() || items.isNull()) {
       return null;
@@ -566,6 +562,15 @@ public class TagoRouteService {
     }
     JsonNode root = OBJECT_MAPPER.readTree(rawResponse);
     return root.path("response").path("body").path("items").path("item");
+  }
+
+  private String requestString(String requestUrl) {
+    return tagoWebClient
+        .get()
+        .uri(requestUrl)
+        .retrieve()
+        .bodyToMono(String.class)
+        .block(REALTIME_API_TIMEOUT);
   }
 
   private String textValue(JsonNode node, String fieldName) {
