@@ -10,6 +10,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -37,6 +38,8 @@ public class OdsayRouteService {
   private static final ZoneId SEOUL_ZONE_ID = ZoneId.of("Asia/Seoul");
   private static final DateTimeFormatter ARRIVAL_TIME_FORMATTER =
       DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+  private static final Duration DEFAULT_REALTIME_LOOKUP_BUDGET = Duration.ofSeconds(8);
+  private static final int DEFAULT_MAX_REALTIME_PROVIDER_CALLS = 6;
 
   private final WebClient webClient;
   private final TagoRouteService tagoRouteService;
@@ -220,15 +223,20 @@ public class OdsayRouteService {
       }
 
       List<TransitRouteResponse.RouteOption> routes = new ArrayList<>();
+      RealtimeLookupBudget realtimeLookupBudget =
+          new RealtimeLookupBudget(
+              DEFAULT_MAX_REALTIME_PROVIDER_CALLS, DEFAULT_REALTIME_LOOKUP_BUDGET);
       if (pathNodes.isArray()) {
         for (JsonNode pathNode : pathNodes) {
-          TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNode, true);
+          TransitRouteResponse.RouteOption routeOption =
+              parseRouteOption(pathNode, realtimeLookupBudget);
           if (routeOption != null) {
             routes.add(routeOption);
           }
         }
       } else {
-        TransitRouteResponse.RouteOption routeOption = parseRouteOption(pathNodes, true);
+        TransitRouteResponse.RouteOption routeOption =
+            parseRouteOption(pathNodes, realtimeLookupBudget);
         if (routeOption != null) {
           routes.add(routeOption);
         }
@@ -250,7 +258,7 @@ public class OdsayRouteService {
   }
 
   private TransitRouteResponse.RouteOption parseRouteOption(
-      JsonNode pathNode, boolean enrichRealtime) {
+      JsonNode pathNode, RealtimeLookupBudget realtimeLookupBudget) {
     if (pathNode == null || pathNode.isMissingNode() || pathNode.isNull()) {
       return null;
     }
@@ -260,7 +268,7 @@ public class OdsayRouteService {
     JsonNode subPaths = pathNode.path("subPath");
     if (subPaths.isArray()) {
       for (JsonNode subPath : subPaths) {
-        segments.add(parseSegment(subPath, enrichRealtime));
+        segments.add(parseSegment(subPath, realtimeLookupBudget));
       }
     }
 
@@ -284,7 +292,8 @@ public class OdsayRouteService {
         segments);
   }
 
-  private TransitRouteResponse.Segment parseSegment(JsonNode subPath, boolean enrichRealtime) {
+  private TransitRouteResponse.Segment parseSegment(
+      JsonNode subPath, RealtimeLookupBudget realtimeLookupBudget) {
     if (subPath == null || subPath.isMissingNode() || subPath.isNull()) {
       return new TransitRouteResponse.Segment(
           null, null, null, null, null, null, null, null, null, null, List.of(), List.of(),
@@ -316,8 +325,8 @@ public class OdsayRouteService {
     List<TransitRouteResponse.Point> pathCoordinates =
         collectSegmentPathCoordinates(subPath, passStops);
     TagoRouteService.RealtimeBusSnapshot realtimeSnapshot =
-        enrichRealtime
-            ? fetchRealtimeBusSnapshot(subPath, laneResponses)
+        realtimeLookupBudget.canContinue()
+            ? fetchRealtimeBusSnapshot(subPath, laneResponses, realtimeLookupBudget)
             : TagoRouteService.RealtimeBusSnapshot.empty();
 
     return new TransitRouteResponse.Segment(
@@ -341,7 +350,9 @@ public class OdsayRouteService {
   }
 
   private TagoRouteService.RealtimeBusSnapshot fetchRealtimeBusSnapshot(
-      JsonNode subPath, List<TransitRouteResponse.Lane> lanes) {
+      JsonNode subPath,
+      List<TransitRouteResponse.Lane> lanes,
+      RealtimeLookupBudget realtimeLookupBudget) {
     if (intValue(subPath, "trafficType") == null || intValue(subPath, "trafficType") != 2) {
       return TagoRouteService.RealtimeBusSnapshot.empty();
     }
@@ -361,7 +372,9 @@ public class OdsayRouteService {
       }
 
       TagoRouteService.RealtimeBusSnapshot tagoSnapshot =
-          tagoRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo);
+          realtimeLookupBudget.tryAcquire()
+              ? tagoRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo)
+              : TagoRouteService.RealtimeBusSnapshot.empty();
       if (!tagoSnapshot.arrivals().isEmpty() || !tagoSnapshot.locations().isEmpty()) {
         arrivals.addAll(tagoSnapshot.arrivals());
         locations.addAll(tagoSnapshot.locations());
@@ -369,7 +382,9 @@ public class OdsayRouteService {
       }
 
       TagoRouteService.RealtimeBusSnapshot seoulSnapshot =
-          seoulBusRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo);
+          realtimeLookupBudget.tryAcquire()
+              ? seoulBusRouteService.getRealtimeBusSnapshot(startLat, startLng, busNo)
+              : TagoRouteService.RealtimeBusSnapshot.empty();
       if (!seoulSnapshot.arrivals().isEmpty() || !seoulSnapshot.locations().isEmpty()) {
         arrivals.addAll(seoulSnapshot.arrivals());
         locations.addAll(seoulSnapshot.locations());
@@ -497,6 +512,29 @@ public class OdsayRouteService {
       return first;
     }
     return second == null || second.isBlank() ? null : second;
+  }
+
+  private static class RealtimeLookupBudget {
+    private final int maxCalls;
+    private final long deadlineNanos;
+    private int usedCalls;
+
+    private RealtimeLookupBudget(int maxCalls, Duration maxDuration) {
+      this.maxCalls = Math.max(0, maxCalls);
+      this.deadlineNanos = System.nanoTime() + maxDuration.toNanos();
+    }
+
+    private boolean canContinue() {
+      return usedCalls < maxCalls && System.nanoTime() < deadlineNanos;
+    }
+
+    private boolean tryAcquire() {
+      if (!canContinue()) {
+        return false;
+      }
+      usedCalls++;
+      return true;
+    }
   }
 
   private Double coordinateValue(JsonNode node, String fieldName) {

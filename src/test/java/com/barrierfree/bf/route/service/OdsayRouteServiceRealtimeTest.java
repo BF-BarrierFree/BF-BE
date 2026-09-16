@@ -2,6 +2,7 @@ package com.barrierfree.bf.route.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -172,5 +173,61 @@ class OdsayRouteServiceRealtimeTest {
     assertThat(segment.busLocations())
         .extracting(TransitRouteResponse.BusLocation::busNo)
         .containsExactly("111", "222");
+  }
+
+  @Test
+  void stopsRealtimeLookupWhenRequestBudgetIsExhausted() {
+    TagoRouteService.RealtimeBusSnapshot empty = TagoRouteService.RealtimeBusSnapshot.empty();
+    when(tagoRouteService.getRealtimeBusSnapshot(37.571407, 126.977324, "111")).thenReturn(empty);
+    when(tagoRouteService.getRealtimeBusSnapshot(37.571407, 126.977324, "222")).thenReturn(empty);
+    when(tagoRouteService.getRealtimeBusSnapshot(37.571407, 126.977324, "333")).thenReturn(empty);
+    when(seoulBusRouteService.getRealtimeBusSnapshot(37.571407, 126.977324, "111"))
+        .thenReturn(empty);
+    when(seoulBusRouteService.getRealtimeBusSnapshot(37.571407, 126.977324, "222"))
+        .thenReturn(empty);
+    when(seoulBusRouteService.getRealtimeBusSnapshot(37.571407, 126.977324, "333"))
+        .thenReturn(empty);
+
+    TransitRouteResponse response =
+        ReflectionTestUtils.invokeMethod(
+            odsayRouteService,
+            "parseTransitRoute",
+            """
+            {
+              "result": {
+                "path": [
+                  {
+                    "pathType": 2,
+                    "info": { "totalTime": 20, "totalDistance": 3000, "totalWalk": 200, "payment": 1500 },
+                    "subPath": [
+                      {
+                        "trafficType": 2,
+                        "startName": "광화문", "endName": "강남",
+                        "startX": 126.977324, "startY": 37.571407,
+                        "endX": 127.027715, "endY": 37.497942,
+                        "lane": [
+                          { "name": "111", "busNo": "111", "type": 1, "busID": "1" },
+                          { "name": "222", "busNo": "222", "type": 1, "busID": "2" },
+                          { "name": "333", "busNo": "333", "type": 1, "busID": "3" },
+                          { "name": "444", "busNo": "444", "type": 1, "busID": "4" }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """);
+
+    assertThat(response).isNotNull();
+    assertThat(response.routes().get(0).segments().get(0).realtimeAvailable()).isFalse();
+    verify(tagoRouteService, times(1)).getRealtimeBusSnapshot(37.571407, 126.977324, "111");
+    verify(seoulBusRouteService, times(1)).getRealtimeBusSnapshot(37.571407, 126.977324, "111");
+    verify(tagoRouteService, times(1)).getRealtimeBusSnapshot(37.571407, 126.977324, "222");
+    verify(seoulBusRouteService, times(1)).getRealtimeBusSnapshot(37.571407, 126.977324, "222");
+    verify(tagoRouteService, times(1)).getRealtimeBusSnapshot(37.571407, 126.977324, "333");
+    verify(seoulBusRouteService, times(1)).getRealtimeBusSnapshot(37.571407, 126.977324, "333");
+    verify(tagoRouteService, times(0)).getRealtimeBusSnapshot(37.571407, 126.977324, "444");
+    verify(seoulBusRouteService, times(0)).getRealtimeBusSnapshot(37.571407, 126.977324, "444");
   }
 }
