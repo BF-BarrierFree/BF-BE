@@ -5,6 +5,7 @@ import java.io.StringReader;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -22,6 +23,8 @@ import org.xml.sax.InputSource;
 @Slf4j
 @Service
 public class SeoulBusRouteService {
+
+  private static final Duration REALTIME_API_TIMEOUT = Duration.ofSeconds(3);
 
   private final WebClient webClient;
 
@@ -201,7 +204,12 @@ public class SeoulBusRouteService {
 
   private Document requestXml(String requestUrl) throws Exception {
     String rawResponse =
-        webClient.get().uri(requestUrl).retrieve().bodyToMono(String.class).block();
+        webClient
+            .get()
+            .uri(requestUrl)
+            .retrieve()
+            .bodyToMono(String.class)
+            .block(REALTIME_API_TIMEOUT);
     if (rawResponse == null || rawResponse.isBlank()) {
       throw new IllegalStateException("empty Seoul bus API response");
     }
