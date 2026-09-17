@@ -27,7 +27,11 @@ public class WebClientConfig {
                     conn.addHandlerLast(new ReadTimeoutHandler(10, TimeUnit.SECONDS))
                         .addHandlerLast(new WriteTimeoutHandler(10, TimeUnit.SECONDS)));
 
-    return WebClient.builder().clientConnector(new ReactorClientHttpConnector(httpClient)).build();
+    return WebClient.builder()
+        .clientConnector(new ReactorClientHttpConnector(httpClient))
+        // 장소 20개의 사진/접근성 정보는 기본 256 KiB를 넘을 수 있습니다.
+        .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(2 * 1024 * 1024))
+        .build();
   }
 
   /**

@@ -167,8 +167,8 @@ public class CourseController {
           "미리보기로 확인한 코스를 유저가 '저장하기' 눌렀을 때 호출하는 API입니다.<br>"
               + "이때 비로소 AI가 추천한 장소들과 함께 코스가 DB에 물리적으로 저장되며, 장소 간 휠체어 이동 동선(거리)이 계산됩니다.<br><br>"
               + "### [입력 가이드]<br>"
-              + "- **title**: 코스 이름 (예: '제주 가족 힐링 코스', 15자 이내)<br>"
-              + "- **places**: `/ai/preview` 응답으로 받았던 장소 데이터 배열을 **그대로 포함**해서 던져주어야 합니다. (각 장소의 카테고리, 좌표, 사진, 접근성 등)")
+              + "- **title**: 미리보기 응답의 `data.courseTitle` 또는 직접 입력한 코스 이름 (예: '제주 가족 힐링 코스', 15자 이내)<br>"
+              + "- **places**: 미리보기 응답의 `data.places` 배열을 그대로 전달합니다. 최소 1개가 필요하며, 장소 개수의 상한은 없습니다. 배열 순서대로 저장됩니다.")
   @PostMapping("/ai")
   public ApiResponse<CourseResponse> saveAiCourse(
       @Parameter(hidden = true) @AuthenticationPrincipal Long userId,

@@ -53,7 +53,7 @@ class CourseRequestValidationTest {
   }
 
   @Test
-  void rejectsMoreThanSevenAiCoursePlaces() {
+  void acceptsMoreThanSevenAiCoursePlaces() {
     try (var validatorFactory = Validation.buildDefaultValidatorFactory()) {
       var validator = validatorFactory.getValidator();
       var place =
@@ -63,7 +63,7 @@ class CourseRequestValidationTest {
       var violations =
           validator.validate(new AiCourseSaveRequest("서울 코스", Collections.nCopies(8, place)));
 
-      assertThat(violations).hasSize(1);
+      assertThat(violations).isEmpty();
     }
   }
 }
