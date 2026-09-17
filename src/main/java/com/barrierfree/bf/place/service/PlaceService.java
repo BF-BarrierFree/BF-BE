@@ -54,14 +54,14 @@ public class PlaceService {
           + "suggestions.placePrediction.structuredFormat.secondaryText.text";
   private static final String PLACE_RESULT_FIELD_MASK =
       "places.id,"
-          + "places.displayName,"
+          + "places.displayName,places.types,"
           + "places.formattedAddress,"
           + "places.location,"
           + "places.accessibilityOptions,"
-          + "places.regularOpeningHours,"
+          + "places.regularOpeningHours.openNow,places.regularOpeningHours.weekdayDescriptions,"
           + "places.nationalPhoneNumber,"
           + "places.userRatingCount,"
-          + "places.photos";
+          + "places.photos.name";
   private static final String PLACE_FIELD_MASK = PLACE_RESULT_FIELD_MASK + ",nextPageToken";
   private static final String NEARBY_FIELD_MASK = PLACE_RESULT_FIELD_MASK;
 

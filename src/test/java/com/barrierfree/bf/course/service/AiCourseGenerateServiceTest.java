@@ -154,6 +154,45 @@ class AiCourseGenerateServiceTest {
   }
 
   @Test
+  void everyGeneratedTitleFitsSaveRequestLimit() {
+    // given
+    when(placeService.search(
+            anyString(),
+            anyString(),
+            anyDouble(),
+            anyDouble(),
+            anyInt(),
+            anyInt(),
+            isNull(),
+            anyList(),
+            anyList()))
+        .thenAnswer(
+            invocation ->
+                new PlaceSearchResponse(
+                    List.of(
+                        place(
+                            invocation.getArgument(1),
+                            PlaceCategory.valueOf(invocation.getArgument(1)),
+                            invocation.getArgument(2),
+                            invocation.getArgument(3))),
+                    null,
+                    false));
+
+    // when / then
+    for (CourseRegion region : CourseRegion.values()) {
+      for (CourseCompanion companion : CourseCompanion.values()) {
+        for (CourseTheme theme : CourseTheme.values()) {
+          var preview =
+              service.generateCoursePreview(
+                  new AiCourseGenerateRequest(
+                      region, companion, List.of(), theme, CourseDuration.HALF_DAY));
+          assertThat(preview.courseTitle()).isNotBlank().hasSizeLessThanOrEqualTo(15);
+        }
+      }
+    }
+  }
+
+  @Test
   void choosesNearestValidPlaceAndSearchesFromPreviousStop() {
     double lat = CourseRegion.SEOUL.getCenterLat();
     double lng = CourseRegion.SEOUL.getCenterLng();

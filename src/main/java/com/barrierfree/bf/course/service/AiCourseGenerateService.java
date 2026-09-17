@@ -192,10 +192,9 @@ public class AiCourseGenerateService {
   /** 유저의 입력 데이터를 바탕으로 그럴듯한 코스 제목을 조합합니다. (추후 LLM 연동 전까지 사용할 임시 로직) */
   private String generateTempTitle(AiCourseGenerateRequest request) {
     String regionName = request.region().getLabel();
-    String companion = request.companion().getLabel();
     String theme = request.theme().getLabel();
 
-    // 예: "제주, 가족과 여행 추천 - 자연·휴식 코스"
-    return String.format("%s, %s 추천 - %s 코스", regionName, companion, theme);
+    // 미리보기 제목을 그대로 저장할 수 있도록 코스 이름의 15자 제한에 맞춥니다.
+    return String.format("%s %s 코스", regionName, theme);
   }
 }
