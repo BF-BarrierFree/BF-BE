@@ -344,8 +344,16 @@ public class ReviewService {
   private List<MobilityType> parseMobilities(List<String> mobilities) {
     if (mobilities == null || mobilities.isEmpty()) return new ArrayList<>();
     try {
-      return mobilities.stream().map(MobilityType::valueOf).collect(Collectors.toList());
-    } catch (IllegalArgumentException | NullPointerException e) {
+      return mobilities.stream()
+          .map(MobilityType::from)
+          .peek(
+              mobility -> {
+                if (mobility == null) {
+                  throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+              })
+          .collect(Collectors.toList());
+    } catch (NullPointerException e) {
       throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
     }
   }
@@ -353,8 +361,8 @@ public class ReviewService {
   private List<FacilityType> parseFacilities(List<String> facilities) {
     if (facilities == null || facilities.isEmpty()) return new ArrayList<>();
     try {
-      return facilities.stream().map(FacilityType::valueOf).collect(Collectors.toList());
-    } catch (IllegalArgumentException | NullPointerException e) {
+      return facilities.stream().map(FacilityType::from).collect(Collectors.toList());
+    } catch (NullPointerException e) {
       throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
     }
   }

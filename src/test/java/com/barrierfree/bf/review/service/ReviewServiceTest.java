@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import com.barrierfree.bf.global.enums.FacilityType;
+import com.barrierfree.bf.global.enums.MobilityType;
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.global.service.ImageService;
@@ -62,6 +64,29 @@ class ReviewServiceTest {
     service.createReview(1L, "place", request, null);
     verify(reviews)
         .save(argThat(r -> r.getRegion().equals("서울 용산구") && r.getPlaceId().equals("place")));
+  }
+
+  @Test
+  void createsWithMobilityAndFacilityCodesFromTheReviewRequest() {
+    ReviewCreateRequest request = new ReviewCreateRequest();
+    request.setPlaceId("place");
+    request.setPlaceName("스타벅스 배곧아브뉴프랑점");
+    request.setCategory("CAFE");
+    request.setRegion("경기 시흥시");
+    request.setContent("후기");
+    request.setMobilities(List.of("VISUAL_IMPAIRMENT"));
+    request.setFacilities(List.of("ACCESSIBLE_RESTROOM"));
+
+    service.createReview(1L, "place", request, null);
+
+    verify(reviews)
+        .save(
+            argThat(
+                review ->
+                    review.getMobilities().equals(List.of(MobilityType.VISUAL_IMPAIRMENT))
+                        && review
+                            .getFacilities()
+                            .equals(List.of(FacilityType.ACCESSIBLE_RESTROOM))));
   }
 
   @Test
