@@ -104,6 +104,9 @@ public class SecurityConfig {
                     .hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                     .requestMatchers(HttpMethod.GET, "/api/v1/inquiries/my", "/api/v1/inquiries/*")
                     .hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
+                    // 외부 Places 호출을 수행하는 테스트 API는 운영에서 공개하지 않습니다.
+                    .requestMatchers("/api/v1/test/places/**")
+                    .hasAuthority("ROLE_ADMIN")
                     // 헬스체크 및 기타 공용 경로는 인증 없이 접근 허용
                     .requestMatchers(
                         "/",
@@ -111,7 +114,6 @@ public class SecurityConfig {
                         "/api/v1/auth/**",
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
-                        "/api/v1/test/places/**",
                         "/api/v1/routes/**", // 로그인 없어도 가능한 기능이라 열어둠.
                         "/api/v1/test/mobility/**" // 교통약자 이동지원 테스트 API
                         )

@@ -5,6 +5,7 @@ import com.barrierfree.bf.course.domain.CourseTheme;
 import com.barrierfree.bf.course.dto.AiCourseGenerateRequest;
 import com.barrierfree.bf.course.dto.AiCoursePlacePreview;
 import com.barrierfree.bf.course.dto.AiCoursePreviewResponse;
+import com.barrierfree.bf.global.enums.MobilityType;
 import com.barrierfree.bf.global.exception.CustomException;
 import com.barrierfree.bf.global.exception.ErrorCode;
 import com.barrierfree.bf.place.domain.PlaceCategory;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,10 +30,10 @@ public class AiCourseGenerateService {
 
   private final PlaceService placeService;
 
-  // 가까운 후보부터 검색하고, 부족할 때만 최대 10km까지 확장합니다.
+  // 후보 선택은 가까운 반경부터 하지만, Google 후보 수집은 코스당 카테고리별 한 번만 합니다.
   private static final int[] SEARCH_RADII = {2000, 5000, 10000};
-  // 가장 긴 일정의 17개 슬롯을 모두 검색할 수 있게 하되, 반경 확장 재시도는 제한합니다.
-  private static final int MAX_PLACE_SEARCHES_PER_REQUEST = 24;
+  private static final int COURSE_CANDIDATE_SEARCH_RADIUS = 10000;
+  private static final int MAX_COURSE_CANDIDATE_SEARCHES = 5;
 
   public AiCoursePreviewResponse generateCoursePreview(AiCourseGenerateRequest request) {
     List<AiCoursePlacePreview> places = new ArrayList<>();
@@ -39,6 +41,8 @@ public class AiCourseGenerateService {
     SearchContext searchContext = new SearchContext();
     double lat = request.region().getCenterLat();
     double lng = request.region().getCenterLng();
+
+    preloadCandidates(request, searchContext, lat, lng);
 
     for (CourseSlot slot : request.duration().getCompositionRule()) {
       PlaceSearchResponse.PlaceSummary selected =
@@ -67,61 +71,77 @@ public class AiCourseGenerateService {
       double lat,
       double lng,
       SearchContext searchContext) {
-    PlaceCategory category =
-        switch (slot) {
-          case FOOD -> PlaceCategory.FOOD;
-          case CAFE -> PlaceCategory.CAFE;
-          case LODGING -> PlaceCategory.LODGING;
-          case TOUR ->
-              request.theme() == CourseTheme.FOOD_CAFE
-                  ? PlaceCategory.TOUR_CULTURE
-                  : request.theme().getTargetCategories().getFirst();
-        };
-    String keyword =
-        request.region().getLabel()
-            + " "
-            + switch (slot) {
-              case FOOD -> "맛집 음식점";
-              case CAFE -> "카페";
-              case LODGING -> "장애인 객실 숙소 호텔";
-              case TOUR ->
-                  request.theme() == CourseTheme.FOOD_CAFE ? "관광 명소" : request.theme().getLabel();
-            };
+    PlaceCategory category = resolveCategory(slot, request);
 
     List<PlaceSearchResponse.PlaceSummary> cachedCandidates =
         List.copyOf(searchContext.candidates(category));
 
+    // 접근성 정보가 확인된 후보를 먼저 찾습니다. Google에 접근성 데이터가 없는 지역에서도
+    // 코스 자체가 사라지지 않도록, 확인된 후보가 없을 때만 일반 후보로 보완합니다.
     for (int radius : SEARCH_RADII) {
       PlaceSearchResponse.PlaceSummary cached =
-          selectBestCandidate(cachedCandidates, category, usedPlaceIds, lat, lng, radius);
-      if (cached != null) {
-        return cached;
-      }
-      if (!searchContext.canSearch()) {
-        log.warn("AI 코스 장소 검색 한도 도달: 최대호출={}", MAX_PLACE_SEARCHES_PER_REQUEST);
-        return null;
-      }
-      searchContext.recordSearch();
-      PlaceSearchResponse response =
-          placeService.search(
-              keyword,
-              category.name(),
+          selectBestCandidate(
+              cachedCandidates,
+              category,
+              usedPlaceIds,
               lat,
               lng,
               radius,
-              20,
-              null,
               request.mobilityTypes(),
-              List.of());
-      searchContext.addCandidates(category, response.places());
-      PlaceSearchResponse.PlaceSummary selected =
+              true);
+      if (cached != null) {
+        return cached;
+      }
+    }
+
+    for (int radius : SEARCH_RADII) {
+      PlaceSearchResponse.PlaceSummary cached =
           selectBestCandidate(
-              searchContext.candidates(category), category, usedPlaceIds, lat, lng, radius);
-      if (selected != null) {
-        return selected;
+              cachedCandidates,
+              category,
+              usedPlaceIds,
+              lat,
+              lng,
+              radius,
+              request.mobilityTypes(),
+              false);
+      if (cached != null) {
+        return cached;
       }
     }
     return null;
+  }
+
+  private void preloadCandidates(
+      AiCourseGenerateRequest request, SearchContext searchContext, double lat, double lng) {
+    Set<PlaceCategory> categories = new LinkedHashSet<>();
+    for (CourseSlot slot : request.duration().getCompositionRule()) {
+      categories.add(resolveCategory(slot, request));
+    }
+
+    for (PlaceCategory category : categories) {
+      if (!searchContext.canSearch()) {
+        log.warn("AI 코스 후보 수집 한도 도달: 최대호출={}", MAX_COURSE_CANDIDATE_SEARCHES);
+        break;
+      }
+      searchContext.recordSearch();
+      PlaceSearchResponse response =
+          placeService.searchCourseCandidates(
+              category, lat, lng, COURSE_CANDIDATE_SEARCH_RADIUS, request.mobilityTypes());
+      searchContext.addCandidates(category, response.places());
+    }
+  }
+
+  private PlaceCategory resolveCategory(CourseSlot slot, AiCourseGenerateRequest request) {
+    return switch (slot) {
+      case FOOD -> PlaceCategory.FOOD;
+      case CAFE -> PlaceCategory.CAFE;
+      case LODGING -> PlaceCategory.LODGING;
+      case TOUR ->
+          request.theme() == CourseTheme.FOOD_CAFE
+              ? PlaceCategory.TOUR_CULTURE
+              : request.theme().getTargetCategories().getFirst();
+    };
   }
 
   private PlaceSearchResponse.PlaceSummary selectBestCandidate(
@@ -130,15 +150,57 @@ public class AiCourseGenerateService {
       Set<String> usedPlaceIds,
       double lat,
       double lng,
-      int radius) {
+      int radius,
+      List<MobilityType> mobilityTypes,
+      boolean requireMobilityMatch) {
     return candidates.stream()
         .filter(place -> place.placeId() != null && !place.placeId().isBlank())
         .filter(place -> !usedPlaceIds.contains(place.placeId()))
         .filter(place -> place.category() == category)
         .filter(this::hasValidCoordinates)
         .filter(place -> distanceMeters(lat, lng, place) <= radius)
+        .filter(place -> !requireMobilityMatch || matchesMobility(place, mobilityTypes))
         .min(Comparator.comparingDouble(place -> distanceMeters(lat, lng, place)))
         .orElse(null);
+  }
+
+  private boolean matchesMobility(
+      PlaceSearchResponse.PlaceSummary place, List<MobilityType> mobilityTypes) {
+    if (mobilityTypes == null || mobilityTypes.isEmpty()) {
+      return true;
+    }
+
+    return mobilityTypes.stream()
+        .filter(java.util.Objects::nonNull)
+        .anyMatch(
+            mobilityType ->
+                switch (mobilityType) {
+                  case WHEELCHAIR ->
+                      Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
+                          || Boolean.TRUE.equals(place.wheelchairAccessibleParking())
+                          || Boolean.TRUE.equals(place.wheelchairAccessibleRestroom())
+                          || Boolean.TRUE.equals(place.wheelchairAccessibleSeating())
+                          || Boolean.TRUE.equals(place.ramp())
+                          || Boolean.TRUE.equals(place.elevator());
+                  case STROLLER ->
+                      Boolean.TRUE.equals(place.strollerRental())
+                          || Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
+                          || Boolean.TRUE.equals(place.elevator());
+                  case COGNITIVE_DEVELOPMENTAL ->
+                      Boolean.TRUE.equals(place.restArea())
+                          || Boolean.TRUE.equals(place.nursingRoom())
+                          || Boolean.TRUE.equals(place.wheelchairAccessibleEntrance())
+                          || Boolean.TRUE.equals(place.wheelchairAccessibleRestroom())
+                          || Boolean.TRUE.equals(place.elevator());
+                  case VISUAL_IMPAIRMENT ->
+                      Boolean.TRUE.equals(place.voiceGuidance())
+                          || Boolean.TRUE.equals(place.brailleBlock());
+                  case HEARING_IMPAIRMENT ->
+                      Boolean.TRUE.equals(place.signLanguage())
+                          || Boolean.TRUE.equals(place.subtitleService())
+                          || Boolean.TRUE.equals(place.hearingSupport());
+                  case OTHER -> false;
+                });
   }
 
   private boolean isRequired(CourseSlot slot) {
@@ -160,7 +222,7 @@ public class AiCourseGenerateService {
     }
 
     private boolean canSearch() {
-      return searchCount < MAX_PLACE_SEARCHES_PER_REQUEST;
+      return searchCount < MAX_COURSE_CANDIDATE_SEARCHES;
     }
 
     private void recordSearch() {
