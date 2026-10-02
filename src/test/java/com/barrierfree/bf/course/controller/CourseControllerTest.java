@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -85,27 +87,33 @@ class CourseControllerTest {
     when(orsRouteService.getWheelchairRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
         .thenReturn(new WheelchairRouteResponse(500, 300, List.of(), List.of()));
     AtomicInteger ids = new AtomicInteger();
-    when(placeService.searchCourseCandidates(any(), anyDouble(), anyDouble(), anyInt(), anyList()))
+    when(placeService.search(
+            anyString(),
+            anyString(),
+            anyDouble(),
+            anyDouble(),
+            anyInt(),
+            anyInt(),
+            isNull(),
+            anyList(),
+            anyList()))
         .thenAnswer(
             invocation ->
                 new PlaceSearchResponse(
-                    IntStream.range(0, 20)
-                        .mapToObj(
-                            ignored ->
-                                mapper.convertValue(
-                                    Map.of(
-                                        "placeId",
-                                        "place-" + ids.incrementAndGet(),
-                                        "name",
-                                        "추천 장소",
-                                        "category",
-                                        invocation.getArgument(0),
-                                        "lat",
-                                        invocation.<Double>getArgument(1),
-                                        "lng",
-                                        invocation.<Double>getArgument(2)),
-                                    PlaceSearchResponse.PlaceSummary.class))
-                        .toList(),
+                    List.of(
+                        mapper.convertValue(
+                            Map.of(
+                                "placeId",
+                                "place-" + ids.incrementAndGet(),
+                                "name",
+                                "추천 장소",
+                                "category",
+                                invocation.<String>getArgument(1),
+                                "lat",
+                                invocation.<Double>getArgument(2),
+                                "lng",
+                                invocation.<Double>getArgument(3)),
+                            PlaceSearchResponse.PlaceSummary.class)),
                     null,
                     false));
 
@@ -158,9 +166,7 @@ class CourseControllerTest {
     assertThat(saved.getPlaces())
         .extracting(CoursePlace::getOriginalPlaceId)
         .containsExactlyElementsOf(
-            IntStream.range(0, count)
-                .mapToObj(index -> preview.get("places").get(index).get("placeId").asText())
-                .toList());
+            IntStream.rangeClosed(1, count).mapToObj(i -> "place-" + i).toList());
     assertThat(saved.getPlaces())
         .allSatisfy(place -> assertThat(place.getCourse()).isSameAs(saved));
     assertThat(saved.getPlaces().getLast().getDistanceToNext()).isNull();

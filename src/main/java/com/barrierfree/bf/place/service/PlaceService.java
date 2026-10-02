@@ -43,6 +43,7 @@ public class PlaceService {
       "https://places.googleapis.com/v1/places:searchText";
   private static final String NEARBY_SEARCH_URL =
       "https://places.googleapis.com/v1/places:searchNearby";
+  private static final int MAX_CANDIDATE_QUERY_COUNT = 3;
   private static final int MAX_PHOTO_URL_COUNT = 7;
   private static final int GOOGLE_NEARBY_MAX_RESULT_COUNT = 20;
   private static final int CATEGORY_SEARCH_MAX_RESULT_COUNT = 100;
@@ -62,13 +63,7 @@ public class PlaceService {
           + "places.userRatingCount,"
           + "places.photos.name";
   private static final String PLACE_FIELD_MASK = PLACE_RESULT_FIELD_MASK + ",nextPageToken";
-  // Nearby/category and AI-course candidate searches do not render contact data or opening hours.
-  // Keeping this mask at Pro prevents those background searches from being billed as Enterprise.
-  private static final String NEARBY_PRO_FIELD_MASK =
-      "places.id,"
-          + "places.displayName,places.types,"
-          + "places.formattedAddress,places.location,"
-          + "places.accessibilityOptions,places.photos.name";
+  private static final String NEARBY_FIELD_MASK = PLACE_RESULT_FIELD_MASK;
 
   @Value("${google.places.api-key}")
   private String googleApiKey;
@@ -246,68 +241,196 @@ public class PlaceService {
     }
     putLocationBias(requestBody, lat, lng, radius);
 
-    // A user search must result in exactly one billable Text Search request. Do not seed the
-    // search with Autocomplete candidates or scan additional pages on behalf of the client.
-    GooglePlaceResponseDto googleResponse = requestGoogleTextSearch(requestBody);
-    List<PlaceSearchResponse.PlaceSummary> pagePlaces =
-        googleResponse == null || googleResponse.getPlaces() == null
-            ? List.of()
-            : googleResponse.getPlaces().stream()
+    List<PlaceSearchResponse.PlaceSummary> places = new ArrayList<>();
+    List<PlaceSearchResponse.PlaceSummary> fallbackPlaces = new ArrayList<>();
+    GooglePlaceResponseDto googleResponse = null;
+    String nextRequestPageToken = pageToken;
+
+    if (pageToken == null || pageToken.isBlank()) {
+      for (String candidateQuery :
+          buildCandidateQueries(keyword, categoryValue, lat, lng, radius)) {
+        if (places.size() >= normalizedPageSize) {
+          break;
+        }
+
+        List<PlaceSearchResponse.PlaceSummary> candidatePlaces = new ArrayList<>();
+
+        for (PlaceSearchResponse.PlaceSummary summary :
+            searchPublicExactCandidate(
+                candidateQuery, category, lat, lng, radius, accessibilityFilterRequested)) {
+          if (candidatePlaces.size() >= normalizedPageSize) {
+            break;
+          }
+          if (matchesUserTypes(summary, userTypes)
+              && matchesFacilities(summary, facilities)
+              && isWithinSearchArea(summary, lat, lng, radius)
+              && !containsSamePlace(candidatePlaces, summary)) {
+            candidatePlaces.add(summary);
+          }
+        }
+
+        if (candidatePlaces.isEmpty()) {
+          for (PlaceSearchResponse.PlaceSummary summary :
+              searchGoogleExactCandidate(
+                  candidateQuery,
+                  category,
+                  lat,
+                  lng,
+                  radius,
+                  accessibilityFilterRequested,
+                  publicInfoCache)) {
+            if (candidatePlaces.size() >= normalizedPageSize) {
+              break;
+            }
+            if (matchesUserTypes(summary, userTypes)
+                && matchesFacilities(summary, facilities)
+                && isWithinSearchArea(summary, lat, lng, radius)
+                && !containsSamePlace(candidatePlaces, summary)) {
+              candidatePlaces.add(summary);
+            }
+          }
+        }
+
+        for (PlaceSearchResponse.PlaceSummary summary : candidatePlaces) {
+          if (places.size() >= normalizedPageSize) {
+            break;
+          }
+          if (!containsSamePlace(places, summary)) {
+            places.add(summary);
+          }
+        }
+      }
+
+      if (places.isEmpty()) {
+        for (PlaceSearchResponse.PlaceSummary summary :
+            searchGoogleAutocompleteDetails(
+                keyword,
+                category,
+                lat,
+                lng,
+                radius,
+                normalizedPageSize,
+                accessibilityFilterRequested,
+                publicInfoCache)) {
+          if (places.size() >= normalizedPageSize) {
+            break;
+          }
+          if (matchesUserTypes(summary, userTypes)
+              && matchesFacilities(summary, facilities)
+              && isWithinSearchArea(summary, lat, lng, radius)
+              && !containsSamePlace(places, summary)) {
+            places.add(summary);
+          }
+        }
+      }
+    }
+
+    while (places.size() < normalizedPageSize) {
+      if (nextRequestPageToken != null && !nextRequestPageToken.isBlank()) {
+        requestBody.put("pageToken", nextRequestPageToken);
+      } else {
+        requestBody.remove("pageToken");
+      }
+
+      try {
+        googleResponse = requestGoogleTextSearch(requestBody);
+      } catch (CustomException e) {
+        log.warn(
+            "Google Places fallback text search failed. keyword={}, errorCode={}",
+            keyword,
+            e.getErrorCode().getCode());
+        break;
+      }
+
+      if (googleResponse != null && googleResponse.getPlaces() != null) {
+        List<PlaceSearchResponse.PlaceSummary> pagePlaces =
+            googleResponse.getPlaces().stream()
                 .map(
                     place ->
                         toPlaceSummary(
                             place, category, accessibilityFilterRequested, publicInfoCache))
                 .filter(place -> isWithinSearchArea(place, lat, lng, radius))
-                .filter(place -> matchesUserTypes(place, userTypes))
-                .filter(place -> matchesFacilities(place, facilities))
-                .limit(normalizedPageSize)
                 .toList();
+
+        pagePlaces.stream()
+            .limit(Math.max(0, normalizedPageSize - fallbackPlaces.size()))
+            .forEach(fallbackPlaces::add);
+
+        if (accessibilityFilterRequested) {
+          List<PlaceSearchResponse.PlaceSummary> filteredPlaces =
+              pagePlaces.stream()
+                  .filter(place -> matchesUserTypes(place, userTypes))
+                  .filter(place -> matchesFacilities(place, facilities))
+                  .toList();
+
+          for (PlaceSearchResponse.PlaceSummary place : filteredPlaces) {
+            if (places.size() >= normalizedPageSize) {
+              break;
+            }
+            if (!containsSamePlace(places, place)) {
+              places.add(place);
+            }
+          }
+        } else {
+          List<PlaceSearchResponse.PlaceSummary> publicBacked = new ArrayList<>();
+          List<PlaceSearchResponse.PlaceSummary> others = new ArrayList<>();
+          for (PlaceSearchResponse.PlaceSummary place : pagePlaces) {
+            if (containsSamePlace(places, place)) {
+              continue;
+            }
+            if (hasPublicData(place)) {
+              publicBacked.add(place);
+            } else {
+              others.add(place);
+            }
+          }
+
+          for (PlaceSearchResponse.PlaceSummary place : publicBacked) {
+            if (places.size() >= normalizedPageSize) {
+              break;
+            }
+            places.add(place);
+          }
+
+          for (PlaceSearchResponse.PlaceSummary place : others) {
+            if (places.size() >= normalizedPageSize) {
+              break;
+            }
+            places.add(place);
+          }
+        }
+      }
+
+      nextRequestPageToken = googleResponse == null ? null : googleResponse.getNextPageToken();
+      if (!shouldScanNextPage(places.size(), normalizedPageSize, nextRequestPageToken)) {
+        break;
+      }
+    }
 
     if (pageToken == null || pageToken.isBlank()) {
       placeSearchHistoryService.save(keyword, category, lat, lng, radius);
     }
 
     String nextPageToken = googleResponse == null ? null : googleResponse.getNextPageToken();
-
-    return new PlaceSearchResponse(
-        pagePlaces, nextPageToken, nextPageToken != null && !nextPageToken.isBlank());
-  }
-
-  /**
-   * Returns one Pro-tier Nearby Search result set for AI course candidate selection. The course
-   * service owns the total request budget and must not call the general Text Search flow.
-   */
-  public PlaceSearchResponse searchCourseCandidates(
-      PlaceCategory category, double lat, double lng, int radius, List<MobilityType> userTypes) {
-    validateMapSearchArea(lat, lng, radius);
-    if (category == null || category == PlaceCategory.ETC) {
-      throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);
+    if (places.isEmpty() && accessibilityFilterRequested) {
+      return new PlaceSearchResponse(List.of(), null, false);
     }
 
-    boolean accessibilityFilterRequested = hasAccessibilityFilter(userTypes, List.of());
-    Map<String, PublicBarrierFreeInfo> publicInfoCache = new HashMap<>();
-    Map<String, Object> requestBody = new HashMap<>();
-    requestBody.put("languageCode", "ko");
-    requestBody.put("regionCode", "KR");
-    requestBody.put("rankPreference", "DISTANCE");
-    requestBody.put("includedTypes", category.getGoogleTypes());
-    requestBody.put("maxResultCount", GOOGLE_NEARBY_MAX_RESULT_COUNT);
-    putLocationRestriction(requestBody, lat, lng, radius);
+    if (places.isEmpty()) {
+      places = fallbackPlaces.stream().limit(normalizedPageSize).toList();
+    } else if (!accessibilityFilterRequested && places.size() < normalizedPageSize) {
+      for (PlaceSearchResponse.PlaceSummary fallbackPlace : fallbackPlaces) {
+        if (places.size() >= normalizedPageSize) {
+          break;
+        }
+        if (!containsSamePlace(places, fallbackPlace)) {
+          places.add(fallbackPlace);
+        }
+      }
+    }
 
-    GooglePlaceResponseDto googleResponse =
-        requestGoogleNearbySearch(requestBody, NEARBY_PRO_FIELD_MASK);
-    List<PlaceSearchResponse.PlaceSummary> places =
-        googleResponse == null || googleResponse.getPlaces() == null
-            ? List.of()
-            : googleResponse.getPlaces().stream()
-                .map(
-                    place ->
-                        toPlaceSummary(
-                            place, category, accessibilityFilterRequested, publicInfoCache))
-                .filter(place -> isWithinSearchArea(place, lat, lng, radius))
-                .limit(GOOGLE_NEARBY_MAX_RESULT_COUNT)
-                .toList();
-    return new PlaceSearchResponse(places, null, false);
+    return new PlaceSearchResponse(
+        places, nextPageToken, nextPageToken != null && !nextPageToken.isBlank());
   }
 
   public PlaceSearchResponse searchByCategory(
@@ -329,33 +452,39 @@ public class PlaceService {
     Map<String, PublicBarrierFreeInfo> publicInfoCache = new HashMap<>();
     List<PlaceSearchResponse.PlaceSummary> places = new ArrayList<>();
 
-    Map<String, Object> requestBody = new HashMap<>();
-    requestBody.put("languageCode", "ko");
-    requestBody.put("regionCode", "KR");
-    requestBody.put("rankPreference", "DISTANCE");
-    requestBody.put("includedTypes", category.getGoogleTypes());
-    requestBody.put("maxResultCount", Math.min(GOOGLE_NEARBY_MAX_RESULT_COUNT, limit));
-    putLocationRestriction(requestBody, lat, lng, radius);
-
-    GooglePlaceResponseDto googleResponse =
-        requestGoogleNearbySearch(requestBody, NEARBY_PRO_FIELD_MASK);
-    if (googleResponse == null || googleResponse.getPlaces() == null) {
-      return new PlaceSearchResponse(List.of(), null, false);
-    }
-
-    for (GooglePlaceResponseDto.Place place : googleResponse.getPlaces()) {
+    for (String googleType : category.getGoogleTypes()) {
       if (places.size() >= limit) {
         break;
       }
 
-      PlaceSearchResponse.PlaceSummary summary =
-          toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache);
-      if (matchesUserTypes(summary, userTypes)
-          && matchesFacilities(summary, facilities)
-          && isWithinSearchArea(summary, lat, lng, radius)
-          && !containsSamePlace(places, summary)
-          && !containsPlaceId(places, summary.placeId())) {
-        places.add(summary);
+      Map<String, Object> requestBody = new HashMap<>();
+      requestBody.put("languageCode", "ko");
+      requestBody.put("regionCode", "KR");
+      requestBody.put("rankPreference", "DISTANCE");
+      requestBody.put("includedTypes", List.of(googleType));
+      requestBody.put(
+          "maxResultCount", Math.min(GOOGLE_NEARBY_MAX_RESULT_COUNT, limit - places.size()));
+      putLocationRestriction(requestBody, lat, lng, radius);
+
+      GooglePlaceResponseDto googleResponse = requestGoogleNearbySearch(requestBody);
+      if (googleResponse == null || googleResponse.getPlaces() == null) {
+        continue;
+      }
+
+      for (GooglePlaceResponseDto.Place place : googleResponse.getPlaces()) {
+        if (places.size() >= limit) {
+          break;
+        }
+
+        PlaceSearchResponse.PlaceSummary summary =
+            toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache);
+        if (matchesUserTypes(summary, userTypes)
+            && matchesFacilities(summary, facilities)
+            && isWithinSearchArea(summary, lat, lng, radius)
+            && !containsSamePlace(places, summary)
+            && !containsPlaceId(places, summary.placeId())) {
+          places.add(summary);
+        }
       }
     }
 
@@ -405,17 +534,12 @@ public class PlaceService {
   }
 
   private GooglePlaceResponseDto requestGoogleNearbySearch(Map<String, Object> requestBody) {
-    return requestGoogleNearbySearch(requestBody, NEARBY_PRO_FIELD_MASK);
-  }
-
-  private GooglePlaceResponseDto requestGoogleNearbySearch(
-      Map<String, Object> requestBody, String fieldMask) {
     try {
       return webClient
           .post()
           .uri(NEARBY_SEARCH_URL)
           .header("X-Goog-Api-Key", googleApiKey)
-          .header("X-Goog-FieldMask", fieldMask)
+          .header("X-Goog-FieldMask", NEARBY_FIELD_MASK)
           .bodyValue(requestBody)
           .retrieve()
           .onStatus(
@@ -451,6 +575,104 @@ public class PlaceService {
     } catch (RuntimeException e) {
       throw toGoogleMapException("Autocomplete", requestBody, e);
     }
+  }
+
+  private List<String> buildCandidateQueries(
+      String keyword, String categoryValue, Double lat, Double lng, Integer radius) {
+    List<String> candidates = new ArrayList<>();
+    try {
+      PlaceAutocompleteResponse autocompleteResponse =
+          autocomplete(keyword, categoryValue, lat, lng, radius);
+      if (autocompleteResponse != null && autocompleteResponse.suggestions() != null) {
+        for (PlaceAutocompleteResponse.Suggestion suggestion : autocompleteResponse.suggestions()) {
+          if (suggestion != null && suggestion.name() != null && !suggestion.name().isBlank()) {
+            addCandidateIfAbsent(candidates, suggestion.name());
+            if (candidates.size() >= MAX_CANDIDATE_QUERY_COUNT) {
+              break;
+            }
+          }
+        }
+      }
+    } catch (RuntimeException e) {
+      log.warn("Autocomplete seed lookup failed. keyword={}", keyword, e);
+    }
+
+    addCandidateIfAbsent(candidates, keyword);
+    return candidates;
+  }
+
+  private List<PlaceSearchResponse.PlaceSummary> searchPublicExactCandidate(
+      String candidateQuery,
+      PlaceCategory category,
+      Double lat,
+      Double lng,
+      Integer radius,
+      boolean accessibilityFilterRequested) {
+    List<PublicBarrierFreePlace> publicPlaces =
+        tourBarrierFreeService.searchByKeyword(candidateQuery, 5);
+    if (publicPlaces.isEmpty()) {
+      return List.of();
+    }
+
+    return publicPlaces.stream()
+        .map(place -> toPlaceSummary(place, category, accessibilityFilterRequested))
+        .filter(place -> isWithinSearchArea(place, lat, lng, radius))
+        .toList();
+  }
+
+  private List<PlaceSearchResponse.PlaceSummary> searchGoogleExactCandidate(
+      String candidateQuery,
+      PlaceCategory category,
+      Double lat,
+      Double lng,
+      Integer radius,
+      boolean accessibilityFilterRequested,
+      Map<String, PublicBarrierFreeInfo> publicInfoCache) {
+    Map<String, Object> candidateRequestBody = new HashMap<>();
+    candidateRequestBody.put("textQuery", candidateQuery);
+    candidateRequestBody.put("languageCode", "ko");
+    candidateRequestBody.put("regionCode", "KR");
+    candidateRequestBody.put("pageSize", 5);
+    String includedType = resolveIncludedType(category);
+    if (includedType != null) {
+      candidateRequestBody.put("includedType", includedType);
+    }
+    putLocationBias(candidateRequestBody, lat, lng, radius);
+
+    GooglePlaceResponseDto googleResponse;
+    try {
+      googleResponse = requestGoogleTextSearch(candidateRequestBody);
+    } catch (CustomException e) {
+      log.warn(
+          "Google Places exact candidate lookup failed. candidateQuery={}, errorCode={}",
+          candidateQuery,
+          e.getErrorCode().getCode());
+      return List.of();
+    }
+    if (googleResponse == null || googleResponse.getPlaces() == null) {
+      return List.of();
+    }
+
+    return googleResponse.getPlaces().stream()
+        .map(
+            place -> toPlaceSummary(place, category, accessibilityFilterRequested, publicInfoCache))
+        .toList();
+  }
+
+  private void addCandidateIfAbsent(List<String> candidates, String candidate) {
+    String normalizedCandidate = normalize(candidate);
+    if (normalizedCandidate.isBlank()) {
+      return;
+    }
+    boolean exists =
+        candidates.stream().anyMatch(existing -> normalize(existing).equals(normalizedCandidate));
+    if (!exists) {
+      candidates.add(candidate);
+    }
+  }
+
+  private boolean shouldScanNextPage(int resultCount, int pageSize, String nextPageToken) {
+    return resultCount < pageSize && nextPageToken != null && !nextPageToken.isBlank();
   }
 
   private boolean hasAccessibilityFilter(
@@ -704,6 +926,70 @@ public class PlaceService {
                     .encode()
                     .toUriString())
         .toList();
+  }
+
+  private List<PlaceSearchResponse.PlaceSummary> searchGoogleAutocompleteDetails(
+      String keyword,
+      PlaceCategory category,
+      Double lat,
+      Double lng,
+      Integer radius,
+      int limit,
+      boolean accessibilityFilterRequested,
+      Map<String, PublicBarrierFreeInfo> publicInfoCache) {
+    Map<String, Object> requestBody = new HashMap<>();
+    requestBody.put("input", keyword);
+    requestBody.put("languageCode", "ko");
+    requestBody.put("includedRegionCodes", List.of("kr"));
+
+    if (category != PlaceCategory.ETC) {
+      requestBody.put("includedPrimaryTypes", category.getGoogleTypes());
+    }
+    putLocationBias(requestBody, lat, lng, radius);
+
+    GoogleAutocompleteResponseDto autocompleteResponse;
+    try {
+      autocompleteResponse = requestGoogleAutocomplete(requestBody);
+    } catch (CustomException e) {
+      log.warn(
+          "Google Places autocomplete details fallback failed. keyword={}, errorCode={}",
+          keyword,
+          e.getErrorCode().getCode());
+      return List.of();
+    }
+
+    if (autocompleteResponse == null || autocompleteResponse.getSuggestions() == null) {
+      return List.of();
+    }
+
+    List<PlaceSearchResponse.PlaceSummary> summaries = new ArrayList<>();
+    for (GoogleAutocompleteResponseDto.Suggestion suggestion :
+        autocompleteResponse.getSuggestions()) {
+      if (summaries.size() >= limit) {
+        break;
+      }
+      if (suggestion == null || suggestion.getPlacePrediction() == null) {
+        continue;
+      }
+
+      String placeId = suggestion.getPlacePrediction().getPlaceId();
+      if (placeId == null || placeId.isBlank() || containsPlaceId(summaries, placeId)) {
+        continue;
+      }
+
+      try {
+        GooglePlaceResponseDto.Place place = placeTestService.getPlaceDetails(placeId);
+        if (place != null) {
+          PlaceCategory responseCategory = resolveResponseCategory(place, category);
+          summaries.add(
+              toPlaceSummary(
+                  place, responseCategory, accessibilityFilterRequested, publicInfoCache));
+        }
+      } catch (RuntimeException e) {
+        log.warn("Google Places details fallback failed. placeId={}", placeId, e);
+      }
+    }
+    return summaries;
   }
 
   private Integer getReviewCount(GooglePlaceResponseDto.Place place) {
